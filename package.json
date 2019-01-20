@@ -1,0 +1,19 @@
+{
+  "name": "whiteboard",
+  "version": "1.0.0",
+  "main": "server/server.js",
+  "keywords": [
+    "socket.io",
+    "whiteboard"
+  ],
+  "dependencies": {
+    "express": "^4.16.4",
+    "socket.io": "latest"
+  },
+  "scripts": {
+    "start": "node server/server.js", 
+    "dev": "nodemon server/server.js"
+  },
+  "author": "GregoireTech",
+  "license": "MIT"
+}

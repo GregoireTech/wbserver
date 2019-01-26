@@ -3,6 +3,7 @@ const roomModel = require("./models/Room");
 const Room = roomModel.Room;
 const teacherModel = require("./models/Teacher");
 const Teacher = teacherModel.Teacher;
+const emailSender = require('./controllers/emailSender');
 const boardController = require("./controllers/boardController");
 let rooms = {};
 let roomList = [];
@@ -136,6 +137,15 @@ function connectToRoom(socket) {
     socket.on("getRoomLines", () => {
         const room = rooms[socket["room"]];
         noFail(sendRoomLines(socket, room.lines));
+    });
+
+    socket.on('inviteGuest', (data) => {
+        const room = rooms[socket['room']];
+        const guest = data.email;
+        if(room){
+            const emailSent = emailSender.sendEmail(guest, room.string);
+            io.of('/rooms').to(`${socket.id}`).emit('inviteRes', {emailSent})
+        }
     });
 
     // THE WHITEBOARD FUNCTIONALITIES

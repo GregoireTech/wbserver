@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport(sendgridTransport({
 
 
 exports.sendEmail = (guest, string) => {
-    const link = 'http://localhost:3000/rooms/?' + string;
+    const link = 'https://massonwb.firebaseapp.com/rooms/?' + string;
     console.log(guest, link);
     transporter.sendMail({
         to: guest,

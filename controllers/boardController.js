@@ -1,7 +1,6 @@
 
 
 exports.onDrawingHandler = (socket, room, data) =>{
-    console.log(socket['room'], room);
     socket.to(socket['room']).emit('drawing', data);
     room.addLine('drawing', data);
     console.log(data);

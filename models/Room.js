@@ -7,6 +7,7 @@ class Room {
         this.string = `id=${name}&&pin=${this.pin}`
         this.usersCounter = 0;
         this.lines = [];
+        this.visioStatus = 0;
     }
 
     addUser(){   

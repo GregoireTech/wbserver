@@ -119,7 +119,7 @@ function connectToRoom(socket) {
                     console.log(socket["room"], "connected", socket.id);
                     io.of("/rooms")
                         .to(`${socket.id}`)
-                        .emit("joinSuccess");
+                        .emit("joinSuccess", {visioStatus: rooms[data.room].visioStatus });
                 } else {
                     error = "too many users";
                 }
@@ -153,7 +153,44 @@ function connectToRoom(socket) {
         }
     });
 
-    // THE WHITEBOARD FUNCTIONALITIES
+    ////////////////////////////////////////////////////
+    ///////      WEBRTC FUNCTIONALITIES       //////////
+    ///////////////////////////////////////////////////
+
+    socket.on('setVisioStatus', data => {
+        const room = rooms[socket['room']];
+        if (room) room.visioStatus = data.status;
+        socket.to(socket['room']).emit('setVisioStatus', data);
+    })
+
+    /* ALICE message type */
+		socket.on('ASK_WEB_RTC', function (msg) {
+			console.log('ASK_WEB_RTC: ' + msg);
+			socket.to(socket['room']).emit('ASK_WEB_RTC', msg);
+		});
+
+		socket.on('CANDIDATE_WEB_RTC_INIT', function (msg) {
+			console.log('CANDIDATE_WEB_RTC_INIT: ' + msg);
+			socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_INIT', msg);
+		});
+
+		/* BOB message type */
+		socket.on('CANDIDATE_WEB_RTC_REC', function (msg) {
+			console.log('CANDIDATE_WEB_RTC_REC: ' + msg);
+			socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_REC', msg);
+		});
+
+		socket.on('RESPONSE_WEB_RTC', function (msg) {
+			console.log('RESPONSE_WEB_RTC: ' + msg);
+			socket.to(socket['room']).emit('RESPONSE_WEB_RTC', msg);
+		});
+
+
+
+
+    ////////////////////////////////////////////////////
+    /////// THE WHITEBOARD FUNCTIONALITIES    //////////
+    ///////////////////////////////////////////////////
     socket.on("drawing", function (data) {
         if (socket["room"] !== undefined) {
             socket.to(socket["room"]).emit("drawing", data);
@@ -210,7 +247,6 @@ function connectToRoom(socket) {
     socket.on("textdraw", function (data) {
         if (socket["room"] !== undefined) {
             socket.to(socket["room"]).emit("textdraw", data);
-            console.log(data);
             const room = rooms[socket['room']];
             if (room) {
                 room.addLine("textdraw", data);
@@ -222,8 +258,6 @@ function connectToRoom(socket) {
     socket.on("copyCanvas", function (data) {
         if (socket["room"] !== undefined) {
             socket.to(socket["room"]).emit("copyCanvas", data);
-            console.log(data);
-            console.log(newLine);
             const room = rooms[socket['room']];
             if (room && newLine) {
                 room.addLine(newLine.type, newLine.path);
@@ -234,7 +268,6 @@ function connectToRoom(socket) {
     socket.on("Clearboard", function (data) {
         if (socket["room"] !== undefined) {
             socket.to(socket["room"]).emit("Clearboard", data);
-            console.log('copy', data);
             const room = rooms[socket['room']];
             if (room) {
                 room.clearAll();
@@ -245,6 +278,11 @@ function connectToRoom(socket) {
     // ON DISCONNECT
     socket.on("disconnect", function () {
         console.log("user disconnected");
+        const room = rooms[socket['room']];
+        if(room){
+            room.visioStatus = 0;
+            io.of('/rooms').to(room).emit('setVisioStatus', {status: 0});
+        }
     });
 }
 

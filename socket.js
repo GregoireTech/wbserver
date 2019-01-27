@@ -57,10 +57,11 @@ const sendRoomLines = (socket, lines) => {
             .emit(line.type, line.data);
         io.of("/rooms")
             .to(`${socket.id}`)
-            .emit("copyCanvas",{transfer: true});
+            .emit("copyCanvas", {
+                transfer: true
+            });
         i++;
     }
-    console.log(i + "lines sent to: " + socket.id);
 };
 
 const noFail = callback => {
@@ -110,16 +111,22 @@ function connectToRoom(socket) {
     console.log("user in rooms");
     socket.on("join", data => {
         let error = false;
-        console.log(data);
-        if (rooms[data.room] != undefined) {
-            if (rooms[data.room].pin === data.pin) {
-                if (rooms[data.room].usersCounter < 2) {
+        const room = rooms[data.room];
+        if (room != undefined) {
+            if (room.pin === data.pin) {
+                if (room.usersCounter < 2) {
                     socket.join(data.room);
+                    room.addUser();
+                    let roomReady;
+                    room.usersCounter === 2 ? roomReady = true : roomReady = false;
                     socket["room"] = data.room;
                     console.log(socket["room"], "connected", socket.id);
                     io.of("/rooms")
                         .to(`${socket.id}`)
-                        .emit("joinSuccess", {visioStatus: rooms[data.room].visioStatus });
+                        .emit("joinSuccess", {
+                            visioStatus: room.visioStatus,
+                            roomReady: roomReady
+                        });
                 } else {
                     error = "too many users";
                 }
@@ -130,7 +137,7 @@ function connectToRoom(socket) {
             error = "room does not exist";
         }
         if (error) {
-            console.log("room does not exist");
+            console.log(error);
             io.of("/rooms")
                 .to(`${socket.id}`)
                 .emit("joinFail", error);
@@ -157,33 +164,27 @@ function connectToRoom(socket) {
     ///////      WEBRTC FUNCTIONALITIES       //////////
     ///////////////////////////////////////////////////
 
-    socket.on('setVisioStatus', data => {
-        const room = rooms[socket['room']];
-        if (room) room.visioStatus = data.status;
-        socket.to(socket['room']).emit('setVisioStatus', data);
-    })
+    /* INIT message type */
+    socket.on('ASK_WEB_RTC', function (msg) {
+        //console.log('ASK_WEB_RTC: ' + msg);
+        socket.to(socket['room']).emit('ASK_WEB_RTC', msg);
+    });
 
-    /* ALICE message type */
-		socket.on('ASK_WEB_RTC', function (msg) {
-			console.log('ASK_WEB_RTC: ' + msg);
-			socket.to(socket['room']).emit('ASK_WEB_RTC', msg);
-		});
+    socket.on('CANDIDATE_WEB_RTC_INIT', function (msg) {
+        //console.log('CANDIDATE_WEB_RTC_INIT: ' + msg);
+        socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_INIT', msg);
+    });
 
-		socket.on('CANDIDATE_WEB_RTC_INIT', function (msg) {
-			console.log('CANDIDATE_WEB_RTC_INIT: ' + msg);
-			socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_INIT', msg);
-		});
+    /* RECEIVER message type */
+    socket.on('CANDIDATE_WEB_RTC_REC', function (msg) {
+        //console.log('CANDIDATE_WEB_RTC_REC: ' + msg);
+        socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_REC', msg);
+    });
 
-		/* BOB message type */
-		socket.on('CANDIDATE_WEB_RTC_REC', function (msg) {
-			console.log('CANDIDATE_WEB_RTC_REC: ' + msg);
-			socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_REC', msg);
-		});
-
-		socket.on('RESPONSE_WEB_RTC', function (msg) {
-			console.log('RESPONSE_WEB_RTC: ' + msg);
-			socket.to(socket['room']).emit('RESPONSE_WEB_RTC', msg);
-		});
+    socket.on('RESPONSE_WEB_RTC', function (msg) {
+        //console.log('RESPONSE_WEB_RTC: ' + msg);
+        socket.to(socket['room']).emit('RESPONSE_WEB_RTC', msg);
+    });
 
 
 
@@ -251,7 +252,7 @@ function connectToRoom(socket) {
             if (room) {
                 room.addLine("textdraw", data);
             }
-            
+
         }
     });
 
@@ -279,9 +280,12 @@ function connectToRoom(socket) {
     socket.on("disconnect", function () {
         console.log("user disconnected");
         const room = rooms[socket['room']];
-        if(room){
+
+        if (room) {
+            room.removeUser();
+            console.log(room.usersCounter);
             room.visioStatus = 0;
-            io.of('/rooms').to(room).emit('setVisioStatus', {status: 0});
+            io.of('/rooms').emit('peerLeft');
         }
     });
 }

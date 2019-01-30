@@ -1,75 +1,50 @@
 const iolib = require("socket.io");
-const roomModel = require("../models/Room");
-const Room = roomModel.Room;
-const teacherModel = require("../models/Teacher");
-const Teacher = teacherModel.Teacher;
+const path = require('path');
+const fs = require('fs');
+
+const DATA_DIR = path.join(__dirname, "../data/");
 const emailSender = require('../controllers/emailSender');
-const boardController = require("../controllers/boardController");
-BoardData = require("./boardData.js").BoardData;
-let rooms = {};
-let roomList = [];
-let teachers = {};
-let teacherList = [];
-let newLine = null;
-var MAX_EMIT_COUNT = 64; // Maximum number of draw operations before getting banned
-var MAX_EMIT_COUNT_PERIOD = 5000; // Duration (in ms) after which the emit count is reset
-
-// Map from name to *promises* of BoardData
-var boards = {};
-
+const BoardData = require("../models/boardData.js").BoardData;
+const TeacherData = require("../models/Teacher").TeacherData;
+const teachers = require('../data/teachers.json');
+const boardList = require('../data/boards.json');
+let boards = {};
+let tmpTeachers, tmpBoards;
 
 // Start the socket server
 function startIO(app) {
     io = iolib(app);
     io.on("connection", onConnection);
-    io.of("/rooms").on("connection", connectToRoom);
+    io.of("/boards").on("connection", connectToRoom);
     return io;
 }
 
-const sendRoomList = (socket, userName) => {
-    const roomNames = teachers[userName].rooms;
-    let myRooms = [];
-    for (name of roomNames) {
-        const room = {
-            name: rooms[name].name,
-            string: rooms[name].string
-        };
-        myRooms.push(room);
-    }
-    io.to(`${socket.id}`).emit("setRoomList", {
-        myRooms
+
+const saveTeachers = (tmpTeachers) => {
+    console.log(tmpTeachers);
+    const teachersFile = path.join(DATA_DIR, "teachers.json");
+    const teachers_txt = JSON.stringify(tmpTeachers);
+    console.log(teachers_txt);
+    fs.writeFileSync(teachersFile, teachers_txt, { flag: 'w'} , function onTeachersSaved(err) {
+        if (err) {
+            console.trace(new Error("Unable to save the teachers to file:" + err));
+        } else {
+            console.log("Successfully saved teachers to file");
+        }
     });
-};
+}
 
-const generateId = () => {
-    const date = JSON.stringify(new Date());
-    const random = JSON.stringify(Math.floor(Math.random() * Math.floor(1000)));
-    const id = date + random;
-    return id;
-};
-
-const createTeacher = (socket, data) => {
-    const newTeacher = new Teacher(data.firstName, data.lastName);
-    teachers[newTeacher.name] = newTeacher;
-    io.of("/rooms")
-        .to(socket["room"])
-        .emit("teacherCreated", data);
-};
-
-const sendRoomLines = (socket, lines) => {
-    let i = 0;
-    for (line of lines) {
-        io.of("/rooms")
-            .to(`${socket.id}`)
-            .emit(line.type, line.data);
-        io.of("/rooms")
-            .to(`${socket.id}`)
-            .emit("copyCanvas", {
-                transfer: true
-            });
-        i++;
-    }
-};
+const saveBoards = (tmpBoards) => {
+    const boardsFile = path.join(DATA_DIR, "boards.json");
+    const boards_txt = JSON.stringify(tmpBoards);
+    fs.writeFileSync(boardsFile, boards_txt, function onBoardsSaved(err) {
+        if (err) {
+            console.trace(new Error("Unable to save the boards to file:" + err));
+        } else {
+            console.log("Successfully saved boards to file");
+        }
+    });
+}
 
 function noFail(fn) {
     return function noFailWrapped(arg) {
@@ -83,17 +58,36 @@ function noFail(fn) {
 
 /** Returns a promise to a BoardData with the given name*/
 function getBoard(name) {
-    if (boards.hasOwnProperty(name)) {
-        return boards[name];
+	if (boards.hasOwnProperty(name)) {
+		return boards[name];
+	} else {
+		const board = BoardData.load(name);
+		boards[name] = board;
+		return board;
+	}
+}
+function getTeacher(data) {
+    if (teachers.includes(data.uid)) {
+        console.log('getting teacher')
+        const teacherInfo = require(`../data/teachers/${data.uid}.json`);
+        const teacherObj = new TeacherData(null, null, null,null);
+        teacherObj.load(teacherInfo);
+        return teacherObj;
     } else {
-        var board = BoardData.load(name);
-        boards[name] = board;
-        return board;
+        console.log('create teacher');
+        const teacher = new TeacherData(data.firstName, data.lastName, data.uid, data.password);
+        tmpTeachers = teachers;
+        tmpTeachers.push(data.uid);
+        teacher.save();
+        noFail(saveTeachers(tmpTeachers));
+        console.log('savedTeachers');
+
+        return teacher;
     }
 }
 
 function saveHistory(boardName, message) {
-    var id = message.id;
+    const id = message.id;
     getBoard(boardName).then(board => {
         switch (message.type) {
             case "delete":
@@ -113,86 +107,136 @@ function saveHistory(boardName, message) {
     });
 }
 
-function generateUID(prefix, suffix) {
-    var uid = Date.now().toString(36); //Create the uids in chronological order
-    uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
-    if (prefix) uid = prefix + uid;
-    if (suffix) uid = uid + suffix;
-    return uid;
-}
+
 
 ////////////////////////////////////////////////
 //           TEACHER INTERFACE                //
 ////////////////////////////////////////////////
+
 function onConnection(socket) {
     console.log(socket.id, "user connected");
-    // To create a new teacher
-    socket.on("newTeacher", data => {
-        console.log("newTeach", data);
-        createTeacher(socket, data);
-    });
-
-    // ROOM FUNCTIONS
-    // When the teacher connected, we get a request for his rooms
-    socket.on("getRooms", data => {
-        console.log("getRooms", data);
-        const userName = data.firstName + data.lastName;
-        if (teachers[userName]) {
-            sendRoomList(socket, userName);
-        } else {
-            createTeacher(socket, data);
+    // When the teacher connected, we get a request for his Boards
+    const sendBoardList = (socket, teacher) => {
+        let myBoards = [];
+        if(teacher){
+            console.log('send boards', teacher);
+            const boards = teacher.boards;
+            console.log(boards);
+            for (let i = 0; i < boards.length; i++ ) {
+                const board = {
+                    date: boards[i].date,
+                    time: boards[i].time,
+                    string: boards[i].string
+                };
+                myBoards.push(board);
+            }
         }
-    });
+        console.log(myBoards);
+        io.to(`${socket.id}`).emit("setBoardList", {
+            myBoards
+        });
+    };
+    socket.on("getMyBoards", data => {
+        const teacher = getTeacher(data);
+        if (!teacher.password === data.password){
+            socket.emit('error', {msg: 'Wrong Password'});
+        } else {
+            sendBoardList(socket, teacher);
+        }
 
+
+    });
     // If the user wants to create a room
-    socket.on("createRoom", data => {
-        console.log("create");
-        const userName = data.firstName + data.lastName;
-        const roomId = generateId();
-        const newRoom = new Room(roomId);
-        if (!teachers[userName]) createTeacher(socket, data);
-        let teacher = teachers[userName];
-        teacher.addRoom(roomId);
-        rooms[roomId] = newRoom;
-        sendRoomList(socket, userName);
+    const generateUID = () => {
+        var uid = Date.now().toString(36); //Create the uids in chronological order
+        uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
+        return uid;
+    } 
+    const createNewBoard = () => {
+        const id = generateUID();
+        const date = new Date();
+        const pin = JSON.stringify(Math.floor(Math.random() * Math.floor(10000)));
+        let month = JSON.stringify(date.getMonth() + 1);
+        if (month.length === 1) month = '0' + month;
+        let day = JSON.stringify(date.getDate());
+        if (day.length === 1) day = '0' + day;
+        let hours = JSON.stringify(date.getHours());
+        if (hours.length === 1) hours = '0' + month;
+        let minutes = JSON.stringify(date.getMinutes());
+        if (minutes.length === 1) minutes = '0' + minutes;
+        const board = {
+            id : id,
+            pin : pin,
+            date: `${day}/${month}`,
+            time: `${hours}:${minutes}`,
+            string: `id=${id}&&pin=${pin}`,
+            usersCounter: 0
+        };
+        return board;
+    
+    }
+    socket.on("createBoard", data => {
+        console.log("create board");
+        const board = createNewBoard();
+        const boardObj = BoardData.load(board.id);
+        const teacher = getTeacher(data);
+        teacher.addBoard(board);
+        teacher.save();
+        tmpBoards = boardList;
+        if(!tmpBoards.hasOwnProperty(board.id)) tmpBoards[board.id] = board;
+        saveBoards(tmpBoards);
+        noFail(sendBoardList(socket, teacher));
     });
 }
 
 ////////////////////////////////////////////////
 //           ONCE CONNECTED TO A ROOM         //
 ////////////////////////////////////////////////
+
 function connectToRoom(socket) {
-    console.log("user in rooms");
+    console.log("user in boards");
+
+    const joinBoard = (socket, data) => {
+        socket.join(data.id);
+        const tmpBoards = boardList;
+        tmpBoards[data.id].usersCounter++;
+        saveBoards(tmpBoards);
+        const board = boardList[data.id];
+        let boardReady;
+        board.usersCounter === 2 ? boardReady = true : boardReady = false;
+        socket["board"] = data.id;
+        console.log(socket["board"], "connected", socket.id);
+        io.of("/boards")
+            .to(`${socket.id}`)
+            .emit("joinSuccess", {
+                boardReady: boardReady
+            });
+    }
+
+
+
+
+
     socket.on("join", data => {
         let error = false;
-        const room = rooms[data.room];
-        if (room != undefined) {
-            if (room.pin === data.pin) {
-                if (room.usersCounter < 2) {
-                    socket.join(data.room);
-                    room.addUser();
-                    let roomReady;
-                    room.usersCounter === 2 ? roomReady = true : roomReady = false;
-                    socket["room"] = data.room;
-                    console.log(socket["room"], "connected", socket.id);
-                    io.of("/rooms")
-                        .to(`${socket.id}`)
-                        .emit("joinSuccess", {
-                            visioStatus: room.visioStatus,
-                            roomReady: roomReady
-                        });
+        const board = boardList[data.id];
+        console.log(data, boardList);
+        if (board != undefined) {
+            if (board.pin === data.pin) {
+                if (board.usersCounter < 2) {
+                    joinBoard(socket, data);
                 } else {
-                    error = "too many users";
+                    error = "Déja 2 utilisateurs présents sur ce tableau";
                 }
             } else {
-                error = "wrong pin";
+                error = "Mot de passe erroné";
             }
         } else {
-            error = "room does not exist";
+            error = "Le tableau n'existe pas";
         }
         if (error) {
             console.log(error);
-            io.of("/rooms")
+            io.of("/boards")
                 .to(`${socket.id}`)
                 .emit("joinFail", error);
         }
@@ -203,32 +247,19 @@ function connectToRoom(socket) {
         const guest = data.email;
         if (room) {
             const emailSent = emailSender.sendEmail(guest, room.string);
-            io.of('/rooms').to(`${socket.id}`).emit('inviteRes', {
+            io.of('/boards').to(`${socket.id}`).emit('inviteRes', {
                 emailSent
             })
         }
     });
 
-    function joinBoard(name) {
-        // Default to the public board
-        if (!name) name = "anonymous";
-
-        // Join the board
-        socket.join(name);
-
-        return getBoard(name).then(board => {
-            board.users.add(socket.id);
-            console.log(new Date() + ": " + board.users.size + " users in " + board.name);
-            return board;
-        });
-    }
 
 
     ////////////////////////////////////////////////////
     /////// THE WHITEBOARD FUNCTIONALITIES    //////////
     ///////////////////////////////////////////////////
-    socket.on("getboard", noFail(function onGetBoard(name) {
-        joinBoard(name).then(board => {
+    socket.on("getboard", noFail(function onGetBoard(boardName) {
+        getBoard(boardName).then(board => {
             //Send all the board's data as soon as it's loaded
             socket.emit("broadcast", {
                 _children: board.getAll()
@@ -236,10 +267,6 @@ function connectToRoom(socket) {
         });
     }));
 
-    socket.on("joinboard", noFail(joinBoard));
-
-    var lastEmitSecond = Date.now() / MAX_EMIT_COUNT_PERIOD | 0;
-    var emitCount = 0;
     socket.on('broadcast', noFail(function onBroadcast(message) {
 
         var boardName = message.board || "anonymous";
@@ -260,19 +287,29 @@ function connectToRoom(socket) {
     }));
 
     socket.on('disconnecting', function onDisconnecting(reason) {
-        Object.keys(socket.rooms).forEach(function disconnectFrom(room) {
-            if (boards.hasOwnProperty(room)) {
-                boards[room].then(board => {
-                    board.users.delete(socket.id);
-                    var userCount = board.users.size;
-                    console.log(userCount + " users in " + room);
-                    if (userCount === 0) {
-                        board.save();
-                        delete boards[room];
-                    }
-                });
-            }
-        });
+        console.log(socket['board'], " disconnected ", socket.id);
+        const board = boardList[socket['board']];
+        if (board) {
+            tmpBoards = boardList;
+            console.log(tmpBoards);
+            tmpBoards[socket['board']].usersCounter--;
+            saveBoards(tmpBoards);
+            io.of('/boards').emit('peerLeft');
+            console.log(boardList);
+        }
+        //Object.keys(socket.rooms).forEach(function disconnectFrom(room) {
+            // if (boards.hasOwnProperty(room)) {
+            //     boards[room].then(board => {
+            //         board.users.delete(socket.id);
+            //         var userCount = board.users.size;
+            //         console.log(userCount + " users in " + room);
+            //         if (userCount === 0) {
+            //             board.save();
+            //             delete boards[room];
+            //         }
+            //     });
+            // }
+        //});
     });
 
 

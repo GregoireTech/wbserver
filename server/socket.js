@@ -1,15 +1,22 @@
 const iolib = require("socket.io");
-const roomModel = require("./models/Room");
+const roomModel = require("../models/Room");
 const Room = roomModel.Room;
-const teacherModel = require("./models/Teacher");
+const teacherModel = require("../models/Teacher");
 const Teacher = teacherModel.Teacher;
-const emailSender = require('./controllers/emailSender');
-const boardController = require("./controllers/boardController");
+const emailSender = require('../controllers/emailSender');
+const boardController = require("../controllers/boardController");
+BoardData = require("./boardData.js").BoardData;
 let rooms = {};
 let roomList = [];
 let teachers = {};
 let teacherList = [];
 let newLine = null;
+var MAX_EMIT_COUNT = 64; // Maximum number of draw operations before getting banned
+var MAX_EMIT_COUNT_PERIOD = 5000; // Duration (in ms) after which the emit count is reset
+
+// Map from name to *promises* of BoardData
+var boards = {};
+
 
 // Start the socket server
 function startIO(app) {
@@ -64,12 +71,59 @@ const sendRoomLines = (socket, lines) => {
     }
 };
 
-const noFail = callback => {
-    if (callback) {
-        callback();
-    } else return;
-};
+function noFail(fn) {
+    return function noFailWrapped(arg) {
+        try {
+            return fn(arg);
+        } catch (e) {
+            console.trace(e);
+        }
+    }
+}
 
+/** Returns a promise to a BoardData with the given name*/
+function getBoard(name) {
+    if (boards.hasOwnProperty(name)) {
+        return boards[name];
+    } else {
+        var board = BoardData.load(name);
+        boards[name] = board;
+        return board;
+    }
+}
+
+function saveHistory(boardName, message) {
+    var id = message.id;
+    getBoard(boardName).then(board => {
+        switch (message.type) {
+            case "delete":
+                if (id) board.delete(id);
+                break;
+            case "update":
+                delete message.type;
+                if (id) board.update(id, message);
+                break;
+            case "child":
+                board.addChild(message.parent, message);
+                break;
+            default: //Add data
+                if (!id) throw new Error("Invalid message: ", message);
+                board.set(id, message);
+        }
+    });
+}
+
+function generateUID(prefix, suffix) {
+    var uid = Date.now().toString(36); //Create the uids in chronological order
+    uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
+    if (prefix) uid = prefix + uid;
+    if (suffix) uid = uid + suffix;
+    return uid;
+}
+
+////////////////////////////////////////////////
+//           TEACHER INTERFACE                //
+////////////////////////////////////////////////
 function onConnection(socket) {
     console.log(socket.id, "user connected");
     // To create a new teacher
@@ -144,11 +198,6 @@ function connectToRoom(socket) {
         }
     });
 
-    socket.on("getRoomLines", () => {
-        const room = rooms[socket["room"]];
-        noFail(sendRoomLines(socket, room.lines));
-    });
-
     socket.on('inviteGuest', (data) => {
         const room = rooms[socket['room']];
         const guest = data.email;
@@ -159,6 +208,92 @@ function connectToRoom(socket) {
             })
         }
     });
+
+    function joinBoard(name) {
+        // Default to the public board
+        if (!name) name = "anonymous";
+
+        // Join the board
+        socket.join(name);
+
+        return getBoard(name).then(board => {
+            board.users.add(socket.id);
+            console.log(new Date() + ": " + board.users.size + " users in " + board.name);
+            return board;
+        });
+    }
+
+
+    ////////////////////////////////////////////////////
+    /////// THE WHITEBOARD FUNCTIONALITIES    //////////
+    ///////////////////////////////////////////////////
+    socket.on("getboard", noFail(function onGetBoard(name) {
+        joinBoard(name).then(board => {
+            //Send all the board's data as soon as it's loaded
+            socket.emit("broadcast", {
+                _children: board.getAll()
+            });
+        });
+    }));
+
+    socket.on("joinboard", noFail(joinBoard));
+
+    var lastEmitSecond = Date.now() / MAX_EMIT_COUNT_PERIOD | 0;
+    var emitCount = 0;
+    socket.on('broadcast', noFail(function onBroadcast(message) {
+
+        var boardName = message.board || "anonymous";
+        var data = message.data;
+
+        if (!socket.rooms.hasOwnProperty(boardName)) socket.join(boardName);
+
+        if (!data) {
+            console.warn("Received invalid message: %s.", JSON.stringify(message));
+            return;
+        }
+
+        //Send data to all other users connected on the same board
+        socket.to(boardName).emit('broadcast', data);
+
+        // Save the message in the board
+        saveHistory(boardName, data);
+    }));
+
+    socket.on('disconnecting', function onDisconnecting(reason) {
+        Object.keys(socket.rooms).forEach(function disconnectFrom(room) {
+            if (boards.hasOwnProperty(room)) {
+                boards[room].then(board => {
+                    board.users.delete(socket.id);
+                    var userCount = board.users.size;
+                    console.log(userCount + " users in " + room);
+                    if (userCount === 0) {
+                        board.save();
+                        delete boards[room];
+                    }
+                });
+            }
+        });
+    });
+
+
+
+
+    // ON DISCONNECT
+    // socket.on("disconnect", function () {
+    //     console.log("user disconnected");
+    //     const room = rooms[socket['room']];
+
+    //     if (room) {
+    //         room.removeUser();
+    //         console.log(room.usersCounter);
+    //         room.visioStatus = 0;
+    //         io.of('/rooms').emit('peerLeft');
+    //     }
+    // });
+
+
+
+
 
     ////////////////////////////////////////////////////
     ///////      WEBRTC FUNCTIONALITIES       //////////
@@ -186,108 +321,6 @@ function connectToRoom(socket) {
         socket.to(socket['room']).emit('RESPONSE_WEB_RTC', msg);
     });
 
-
-
-
-    ////////////////////////////////////////////////////
-    /////// THE WHITEBOARD FUNCTIONALITIES    //////////
-    ///////////////////////////////////////////////////
-    socket.on("drawing", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("drawing", data);
-            const room = rooms[socket['room']];
-            room.addLine('drawing', data);
-            //console.log(data);
-        }
-    });
-
-    socket.on("rectangle", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("rectangle", data);
-            newLine = {
-                type: "rectangle",
-                path: data
-            }
-            //console.log(data);
-        }
-    });
-
-    socket.on("linedraw", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("linedraw", data);
-            newLine = {
-                type: "linedraw",
-                path: data
-            }
-            //console.log(data);
-        }
-    });
-
-    socket.on("circledraw", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("circledraw", data);
-            newLine = {
-                type: "circledraw",
-                path: data
-            }
-            //console.log(data);
-        }
-    });
-
-    socket.on("ellipsedraw", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("ellipsedraw", data);
-            newLine = {
-                type: "ellipsedraw",
-                path: data
-            }
-            //console.log(data);
-        }
-    });
-
-    socket.on("textdraw", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("textdraw", data);
-            const room = rooms[socket['room']];
-            if (room) {
-                room.addLine("textdraw", data);
-            }
-
-        }
-    });
-
-    socket.on("copyCanvas", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("copyCanvas", data);
-            const room = rooms[socket['room']];
-            if (room && newLine) {
-                room.addLine(newLine.type, newLine.path);
-            }
-        }
-    });
-
-    socket.on("Clearboard", function (data) {
-        if (socket["room"] !== undefined) {
-            socket.to(socket["room"]).emit("Clearboard", data);
-            const room = rooms[socket['room']];
-            if (room) {
-                room.clearAll();
-            }
-        }
-    });
-
-    // ON DISCONNECT
-    socket.on("disconnect", function () {
-        console.log("user disconnected");
-        const room = rooms[socket['room']];
-
-        if (room) {
-            room.removeUser();
-            console.log(room.usersCounter);
-            room.visioStatus = 0;
-            io.of('/rooms').emit('peerLeft');
-        }
-    });
 }
 
 exports.start = startIO;

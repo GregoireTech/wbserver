@@ -1,7 +1,7 @@
 {
   "name": "whiteboard",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "./server/server.js",
   "keywords": [
     "socket.io",
     "whiteboard"
@@ -13,8 +13,8 @@
     "socket.io": "latest"
   },
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node ./server/server.js",
+    "dev": "nodemon ./server/server.js"
   },
   "author": "GregoireTech",
   "license": "MIT"

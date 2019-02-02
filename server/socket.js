@@ -69,7 +69,7 @@ function getBoard(name) {
 function getTeacher(data) {
     if (teachers.includes(data.uid)) {
         console.log('getting teacher')
-        const teacherInfo = require(`../data/teachers/${data.uid}.json`);
+        const teacherInfo = require(`../data/teachers/teacher-${data.uid}.json`);
         const teacherObj = new TeacherData(null, null, null,null);
         teacherObj.load(teacherInfo);
         return teacherObj;
@@ -86,26 +86,7 @@ function getTeacher(data) {
     }
 }
 
-function saveHistory(boardName, message) {
-    const id = message.id;
-    getBoard(boardName).then(board => {
-        switch (message.type) {
-            case "delete":
-                if (id) board.delete(id);
-                break;
-            case "update":
-                delete message.type;
-                if (id) board.update(id, message);
-                break;
-            case "child":
-                board.addChild(message.parent, message);
-                break;
-            default: //Add data
-                if (!id) throw new Error("Invalid message: ", message);
-                board.set(id, message);
-        }
-    });
-}
+
 
 
 
@@ -192,6 +173,26 @@ function onConnection(socket) {
 ////////////////////////////////////////////////
 //           ONCE CONNECTED TO A ROOM         //
 ////////////////////////////////////////////////
+function saveHistory(boardName, message) {
+    const id = message.id;
+    getBoard(boardName).then(board => {
+        switch (message.type) {
+            case "delete":
+                if (id) board.delete(id);
+                break;
+            case "update":
+                delete message.type;
+                if (id) board.update(id, message);
+                break;
+            case "child":
+                board.addChild(message.parent, message);
+                break;
+            default: //Add data
+                if (!id) throw new Error("Invalid message: ", message);
+                board.set(id, message);
+        }
+    });
+}
 
 function connectToRoom(socket) {
     console.log("user in boards");

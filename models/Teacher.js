@@ -11,7 +11,7 @@ class TeacherData {
         this.uid = uid;
         this.password = password;
         this.boards = [];
-        this.file = path.join(HISTORY_DIR, encodeURIComponent(uid) + ".json");
+        this.file = path.join(HISTORY_DIR, "teacher-" + encodeURIComponent(uid) + ".json");
     }
 
     addBoard(board) {

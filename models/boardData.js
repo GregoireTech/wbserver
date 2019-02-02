@@ -27,7 +27,7 @@ var MAX_BOARD_SIZE = 65536; // Maximum value for any x or y on the board
 var BoardData = function (name) {
 	this.name = name;
 	this.board = {};
-	this.file = path.join(HISTORY_DIR, encodeURIComponent(name) + ".json");
+	this.file = path.join(HISTORY_DIR, "board-" + encodeURIComponent(name) + ".json");
 	this.lastSaveDate = Date.now();
 	this.usersCounter = 0;
 };

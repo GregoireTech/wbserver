@@ -1,13 +1,18 @@
+
+// import external & core librairies
+const emailSender = require('../controllers/emailSender');
 const iolib = require("socket.io");
 const path = require('path');
 const fs = require('fs');
-
+// Define path to data directory
 const DATA_DIR = path.join(__dirname, "../data/");
-const emailSender = require('../controllers/emailSender');
+// import models
 const BoardData = require("../models/boardData.js").BoardData;
 const TeacherData = require("../models/Teacher").TeacherData;
+//import data files
 const teachers = require('../data/teachers.json');
 const boardList = require('../data/boards.json');
+//define variables
 let boards = {};
 let tmpTeachers, tmpBoards;
 
@@ -45,6 +50,17 @@ const saveBoards = (tmpBoards) => {
         }
     });
 }
+const saveTeacher = (tmpTeacher) => {
+    const teacherFile = path.join(DATA_DIR, `teachers/teacher-${tmpTeacher.uid}.json`);
+    const teacher_txt = JSON.stringify(tmpTeacher);
+    fs.writeFileSync(teacherFile, teacher_txt, function onTeacherSaved(err) {
+        if (err) {
+            console.trace(new Error("Unable to save the Teacher to file:" + err));
+        } else {
+            console.log("Successfully saved Teacher to file");
+        }
+    });
+}
 
 function noFail(fn) {
     return function noFailWrapped(arg) {
@@ -55,6 +71,74 @@ function noFail(fn) {
         }
     }
 }
+
+////////////////////////////////////////////////
+//        LOOP TO DELETE OLD BOARDS           //
+////////////////////////////////////////////////
+const deleteOldBoards = (boardsToDelete) => {
+    boardsToDelete.forEach(oldBoard => {
+
+        //Disconnect all users from the board before removing it
+
+        // Remove the board from the teacher's board list
+        const tmpTeacher = require(path.join(DATA_DIR, `teachers/teacher-${oldBoard.teacher}.json`));
+        let tmpHisboards = [];
+        tmpTeacher.boards.forEach(hisBoard => {
+            if (hisBoard.id !== oldBoard.id){
+                tmpHisboards.push(hisBoard);
+            } 
+        });
+        tmpTeacher.boards = tmpHisboards;
+        // Save the new teacher object with updated board list
+        saveTeacher(tmpTeacher);
+
+        // Remove the board data file
+        fs.unlinkSync(path.join(DATA_DIR, `boards/board-${oldBoard.id}.json`), function onDeleteFileSuccess(){
+            console.log('file deleted : ', `board-${oldBoard.id}.json` );
+        }, function onDeleteFileFail(err){
+            console.log('error deleting file ', `board-${oldBoard.id}.json. Error : `, err );
+        });
+    });
+}
+
+const defineBoardsToDelete = () => {
+    const tmpBoards = require('../data/boards.json');
+    let boardsToDelete = [];
+    let newBoards = {};
+    // Define current date & time
+    const now = new Date();
+    const curMonth = now.getMonth() + 1;
+    const curDate = now.getDate();
+    const curHours = now.getHours();
+
+    //loop through boards
+    for (let key in tmpBoards){
+        const month = tmpBoards[key].date.split('/')[1];
+        const date = tmpBoards[key].date.split('/')[0];
+        const hours = tmpBoards[key].time.split(':')[0];
+
+        if(date < curDate && hours < curHours || month < curMonth && hours < curHours){
+            // if board older than 24h, add it to list of boards to delete
+            boardsToDelete.push(tmpBoards[key]);
+        } else {
+            // otherwise add to the new boardList
+            newBoards[key] = tmpBoards[key];
+        }
+    }
+
+    
+    // delete the old boards
+    deleteOldBoards(boardsToDelete);
+    //save the new boards list
+    saveBoards(newBoards);
+
+    // set time out to iterate process in 1h
+    setTimeout(defineBoardsToDelete, 20000);
+}
+
+defineBoardsToDelete();
+
+
 
 /** Returns a promise to a BoardData with the given name*/
 function getBoard(name) {
@@ -86,37 +170,64 @@ function getTeacher(data) {
     }
 }
 
-
-
-
-
 ////////////////////////////////////////////////
 //           TEACHER INTERFACE                //
 ////////////////////////////////////////////////
+const sendBoardList = (socket, teacher) => {
+    let myBoards = [];
+    if(teacher){
+        console.log('send boards', teacher);
+        const boards = teacher.boards;
+        console.log(boards);
+        for (let i = 0; i < boards.length; i++ ) {
+            const board = {
+                date: boards[i].date,
+                time: boards[i].time,
+                string: boards[i].string
+            };
+            myBoards.push(board);
+        }
+    }
+    console.log(myBoards);
+    io.to(`${socket.id}`).emit("setBoardList", {
+        myBoards
+    });
+};
+
+const generateUID = () => {
+    var uid = Date.now().toString(36); //Create the uids in chronological order
+    uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
+    return uid;
+} 
+
+const createNewBoard = () => {
+    const id = generateUID();
+    const date = new Date();
+    const pin = JSON.stringify(Math.floor(Math.random() * Math.floor(10000)));
+    let month = JSON.stringify(date.getMonth() + 1);
+    if (month.length === 1) month = '0' + month;
+    let day = JSON.stringify(date.getDate());
+    if (day.length === 1) day = '0' + day;
+    let hours = JSON.stringify(date.getHours());
+    if (hours.length === 1) hours = '0' + month;
+    let minutes = JSON.stringify(date.getMinutes());
+    if (minutes.length === 1) minutes = '0' + minutes;
+    const board = {
+        id : id,
+        pin : pin,
+        date: `${day}/${month}`,
+        time: `${hours}:${minutes}`,
+        string: `id=${id}&&pin=${pin}`,
+        usersCounter: 0
+    };
+    return board;
+
+}
 
 function onConnection(socket) {
     console.log(socket.id, "user connected");
     // When the teacher connected, we get a request for his Boards
-    const sendBoardList = (socket, teacher) => {
-        let myBoards = [];
-        if(teacher){
-            console.log('send boards', teacher);
-            const boards = teacher.boards;
-            console.log(boards);
-            for (let i = 0; i < boards.length; i++ ) {
-                const board = {
-                    date: boards[i].date,
-                    time: boards[i].time,
-                    string: boards[i].string
-                };
-                myBoards.push(board);
-            }
-        }
-        console.log(myBoards);
-        io.to(`${socket.id}`).emit("setBoardList", {
-            myBoards
-        });
-    };
+
     socket.on("getMyBoards", data => {
         const teacher = getTeacher(data);
         if (!teacher.password === data.password){
@@ -128,34 +239,7 @@ function onConnection(socket) {
 
     });
     // If the user wants to create a room
-    const generateUID = () => {
-        var uid = Date.now().toString(36); //Create the uids in chronological order
-        uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
-        return uid;
-    } 
-    const createNewBoard = () => {
-        const id = generateUID();
-        const date = new Date();
-        const pin = JSON.stringify(Math.floor(Math.random() * Math.floor(10000)));
-        let month = JSON.stringify(date.getMonth() + 1);
-        if (month.length === 1) month = '0' + month;
-        let day = JSON.stringify(date.getDate());
-        if (day.length === 1) day = '0' + day;
-        let hours = JSON.stringify(date.getHours());
-        if (hours.length === 1) hours = '0' + month;
-        let minutes = JSON.stringify(date.getMinutes());
-        if (minutes.length === 1) minutes = '0' + minutes;
-        const board = {
-            id : id,
-            pin : pin,
-            date: `${day}/${month}`,
-            time: `${hours}:${minutes}`,
-            string: `id=${id}&&pin=${pin}`,
-            usersCounter: 0
-        };
-        return board;
-    
-    }
+
     socket.on("createBoard", data => {
         console.log("create board");
         const board = createNewBoard();

@@ -14,7 +14,7 @@
   },
   "scripts": {
     "start": "node ./server/server.js",
-    "dev": "nodemon ./server/server.js"
+    "dev": "nodemon  --ignore data/ --ignore client/ ./server/server.js"
   },
   "author": "GregoireTech",
   "license": "MIT"

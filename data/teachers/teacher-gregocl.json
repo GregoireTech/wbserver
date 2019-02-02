@@ -1,17 +1,1 @@
-{
-    "lastSaveDate": 1549110052084,
-    "name": "GrégoireLeBeauGosse",
-    "lastName": "LeBeauGosse",
-    "uid": "gregocl",
-    "password": "333888",
-    "boards": [{
-        "id": "jrng4m43t",
-        "pin": "7796",
-        "date": "02/02",
-        "time": "13:20",
-        "string": "id=jrng4m43t&&pin=7796",
-        "usersCounter": 0,
-        "teacher": "gregocl"
-    }],
-    "file": "C:\\Users\\Grégoire\\Desktop\\Masson\\server\\data\\teachers\\teacher-gregocl.json"
-}
+{"lastSaveDate":1549141926570,"name":"GrégoireLeBeauGosse","lastName":"LeBeauGosse","uid":"gregocl","password":"333888","boards":[{"id":"jrngkxt7x","pin":"9448","date":"02/02","time":"13:33","string":"id=jrngkxt7x&&pin=9448","usersCounter":0,"teacher":"gregocl"},{"id":"jrnyznzy3","pin":"9983","date":"02/02","time":"22:08","string":"id=jrnyznzy3&&pin=9983","usersCounter":0,"teacher":"gregocl"},{"id":"jrnz3smfb","pin":"6695","date":"02/02","time":"22:12","string":"id=jrnz3smfb&&pin=6695","usersCounter":0,"teacher":"gregocl"}],"file":"C:\\Users\\Grégoire\\Desktop\\Masson\\server\\data\\teachers\\teacher-gregocl.json"}

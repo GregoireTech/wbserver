@@ -1,18 +1,24 @@
 
 /** TODO
 
-Thursday
-- Color picker (react color picker?)
-- query params
+DIVERS
+    => SERVE build file
+        -> client dir in server dir
+        -> adapt gitignore
+        -> adapt server.js to serve build if production
+        -> test
+    => DEPLOY to AWS
+    => COMMENT all code (server first, then front scripts)
 
-Friday
-- join room 
-- Resize canvas
-- Draw rooms on new user
-- invite by email
 
-Weekend
-- WEBRTC
-    - cross browser
-    - file transfer
+SERVER
+    => implement try/catch (esp. in files save & delete fns)
+    => refacture save fn (one fn for all files)
+    => check invite mail service
+
+CLIENT
+    => webRTC
+        -> cross browser
+
+FILE TRANSFER
 

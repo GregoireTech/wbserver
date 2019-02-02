@@ -1,4 +1,3 @@
-
 // import external & core librairies
 const emailSender = require('../controllers/emailSender');
 const iolib = require("socket.io");
@@ -11,7 +10,7 @@ const BoardData = require("../models/boardData.js").BoardData;
 const TeacherData = require("../models/Teacher").TeacherData;
 //import data files
 const teachers = require('../data/teachers.json');
-const boardList = require('../data/boards.json');
+let boardList = require('../data/boards.json');
 //define variables
 let boards = {};
 let tmpTeachers, tmpBoards;
@@ -29,7 +28,9 @@ const saveTeachers = (tmpTeachers) => {
     const teachersFile = path.join(DATA_DIR, "teachers.json");
     const teachers_txt = JSON.stringify(tmpTeachers);
     console.log(teachers_txt);
-    fs.writeFileSync(teachersFile, teachers_txt, { flag: 'w'} , function onTeachersSaved(err) {
+    fs.writeFileSync(teachersFile, teachers_txt, {
+        flag: 'w'
+    }, function onTeachersSaved(err) {
         if (err) {
             console.trace(new Error("Unable to save the teachers to file:" + err));
         } else {
@@ -74,20 +75,20 @@ function noFail(fn) {
 
 /** Returns a promise to a BoardData with the given name*/
 function getBoard(name) {
-	if (boards.hasOwnProperty(name)) {
-		return boards[name];
-	} else {
-		const board = BoardData.load(name);
-		boards[name] = board;
-		return board;
-	}
+    if (boards.hasOwnProperty(name)) {
+        return boards[name];
+    } else {
+        const board = BoardData.load(name);
+        boards[name] = board;
+        return board;
+    }
 }
 
 function getTeacher(data) {
     if (teachers.includes(data.uid)) {
         console.log('getting teacher')
         const teacherInfo = require(`../data/teachers/teacher-${data.uid}.json`);
-        const teacherObj = new TeacherData(null, null, null,null);
+        const teacherObj = new TeacherData(null, null, null, null);
         teacherObj.load(teacherInfo);
         return teacherObj;
     } else {
@@ -107,28 +108,26 @@ function getTeacher(data) {
 //        LOOP TO DELETE OLD BOARDS           //
 ////////////////////////////////////////////////
 const deleteOldBoards = (boardsToDelete) => {
-    console.log('deleting old boards ');
+    console.log('deleting old boards : ', boardsToDelete);
     boardsToDelete.forEach(oldBoard => {
-
-        //Disconnect all users from the board before removing it
 
         // Remove the board from the teacher's board list
         const tmpTeacher = require(path.join(DATA_DIR, `teachers/teacher-${oldBoard.teacher}.json`));
         let tmpHisboards = [];
         tmpTeacher.boards.forEach(hisBoard => {
-            if (hisBoard.id !== oldBoard.id){
+            if (hisBoard.id !== oldBoard.id) {
                 tmpHisboards.push(hisBoard);
-            } 
+            }
         });
         tmpTeacher.boards = tmpHisboards;
         // Save the new teacher object with updated board list
         saveTeacher(tmpTeacher);
 
         // Remove the board data file
-        fs.unlinkSync(path.join(DATA_DIR, `boards/board-${oldBoard.id}.json`), function onDeleteFileSuccess(){
-            console.log('file deleted : ', `board-${oldBoard.id}.json` );
-        }, function onDeleteFileFail(err){
-            console.log('error deleting file ', `board-${oldBoard.id}.json. Error : `, err );
+        fs.unlinkSync(path.join(DATA_DIR, `boards/board-${oldBoard.id}.json`), function onDeleteFileSuccess() {
+            console.log('file deleted : ', `board-${oldBoard.id}.json`);
+        }, function onDeleteFileFail(err) {
+            console.log('error deleting file ', `board-${oldBoard.id}.json. Error : `, err);
         });
     });
 }
@@ -137,34 +136,35 @@ const defineBoardsToDelete = () => {
     console.log('defining boards to delete')
     const tmpBoards = require('../data/boards.json');
     let boardsToDelete = [];
-    let newBoards = {};
+    let newBoardList = {};
     // Define current date & time
     const now = new Date();
     const curMonth = now.getMonth() + 1;
+    if (curMonth === 1) curMonth = 13;
     const curDate = now.getDate();
     const curHours = now.getHours();
 
     //loop through boards
-    for (let key in tmpBoards){
+    for (let key in tmpBoards) {
         const month = tmpBoards[key].date.split('/')[1];
         const date = tmpBoards[key].date.split('/')[0];
         const hours = tmpBoards[key].time.split(':')[0];
 
-        if(date < curDate && hours < curHours || month < curMonth && hours < curHours){
+        if (date < curDate && hours < curHours && tmpBoards[key].usersCounter === 0 || month < curMonth && hours < curHours && tmpBoards[key].usersCounter === 0) {
             // if board older than 24h, add it to list of boards to delete
             boardsToDelete.push(tmpBoards[key]);
         } else {
             // otherwise add to the new boardList
-            newBoards[key] = tmpBoards[key];
+            newBoardList[key] = tmpBoards[key];
         }
     }
-
+    // Block any one from joining the rooms to be deleted before deleting room files
+    boardList = newBoardList;
     // delete the old boards
     deleteOldBoards(boardsToDelete);
     //save the new boards list
     console.log('saving new board list');
-    saveBoards(newBoards);
-
+    saveBoards(newBoardList);
     // set time out to iterate process in 1h
     setTimeout(defineBoardsToDelete, 3600000);
 }
@@ -173,16 +173,14 @@ defineBoardsToDelete();
 
 
 
-
-
 ////////////////////////////////////////////////
 //           TEACHER INTERFACE                //
 ////////////////////////////////////////////////
 const sendBoardList = (socket, teacher) => {
     let myBoards = [];
-    if(teacher){
+    if (teacher) {
         const boards = teacher.boards;
-        for (let i = 0; i < boards.length; i++ ) {
+        for (let i = 0; i < boards.length; i++) {
             const board = {
                 date: boards[i].date,
                 time: boards[i].time,
@@ -200,7 +198,7 @@ const generateUID = () => {
     var uid = Date.now().toString(36); //Create the uids in chronological order
     uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
     return uid;
-} 
+}
 
 const createNewBoard = (teacherData) => {
     const id = generateUID();
@@ -215,8 +213,8 @@ const createNewBoard = (teacherData) => {
     let minutes = JSON.stringify(date.getMinutes());
     if (minutes.length === 1) minutes = '0' + minutes;
     const board = {
-        id : id,
-        pin : pin,
+        id: id,
+        pin: pin,
         date: `${day}/${month}`,
         time: `${hours}:${minutes}`,
         string: `id=${id}&&pin=${pin}`,
@@ -233,8 +231,10 @@ function onConnection(socket) {
 
     socket.on("getMyBoards", data => {
         const teacher = getTeacher(data);
-        if (!teacher.password === data.password){
-            socket.emit('error', {msg: 'Wrong Password'});
+        if (!teacher.password === data.password) {
+            socket.emit('error', {
+                msg: 'Wrong Password'
+            });
         } else {
             sendBoardList(socket, teacher);
         }
@@ -251,7 +251,7 @@ function onConnection(socket) {
         teacher.addBoard(board);
         teacher.save();
         tmpBoards = boardList;
-        if(!tmpBoards.hasOwnProperty(board.id)) tmpBoards[board.id] = board;
+        if (!tmpBoards.hasOwnProperty(board.id)) tmpBoards[board.id] = board;
         saveBoards(tmpBoards);
         noFail(sendBoardList(socket, teacher));
     });
@@ -382,17 +382,17 @@ function connectToRoom(socket) {
             console.log(boardList);
         }
         //Object.keys(socket.rooms).forEach(function disconnectFrom(room) {
-            // if (boards.hasOwnProperty(room)) {
-            //     boards[room].then(board => {
-            //         board.users.delete(socket.id);
-            //         var userCount = board.users.size;
-            //         console.log(userCount + " users in " + room);
-            //         if (userCount === 0) {
-            //             board.save();
-            //             delete boards[room];
-            //         }
-            //     });
-            // }
+        // if (boards.hasOwnProperty(room)) {
+        //     boards[room].then(board => {
+        //         board.users.delete(socket.id);
+        //         var userCount = board.users.size;
+        //         console.log(userCount + " users in " + room);
+        //         if (userCount === 0) {
+        //             board.save();
+        //             delete boards[room];
+        //         }
+        //     });
+        // }
         //});
     });
 
@@ -436,17 +436,15 @@ exports.start = startIO;
 
 
 
-    // ON DISCONNECT
-    // socket.on("disconnect", function () {
-    //     console.log("user disconnected");
-    //     const room = rooms[socket['room']];
+// ON DISCONNECT
+// socket.on("disconnect", function () {
+//     console.log("user disconnected");
+//     const room = rooms[socket['room']];
 
-    //     if (room) {
-    //         room.removeUser();
-    //         console.log(room.usersCounter);
-    //         room.visioStatus = 0;
-    //         io.of('/rooms').emit('peerLeft');
-    //     }
-    // });
-
-
+//     if (room) {
+//         room.removeUser();
+//         console.log(room.usersCounter);
+//         room.visioStatus = 0;
+//         io.of('/rooms').emit('peerLeft');
+//     }
+// });

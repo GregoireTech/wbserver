@@ -76,6 +76,7 @@ function noFail(fn) {
 //        LOOP TO DELETE OLD BOARDS           //
 ////////////////////////////////////////////////
 const deleteOldBoards = (boardsToDelete) => {
+    console.log('deleting : ', boardsToDelete);
     boardsToDelete.forEach(oldBoard => {
 
         //Disconnect all users from the board before removing it
@@ -102,6 +103,7 @@ const deleteOldBoards = (boardsToDelete) => {
 }
 
 const defineBoardsToDelete = () => {
+    console.log('defining boards to delete')
     const tmpBoards = require('../data/boards.json');
     let boardsToDelete = [];
     let newBoards = {};
@@ -126,10 +128,10 @@ const defineBoardsToDelete = () => {
         }
     }
 
-    
     // delete the old boards
     deleteOldBoards(boardsToDelete);
     //save the new boards list
+    console.log('saving new board list');
     saveBoards(newBoards);
 
     // set time out to iterate process in 1h
@@ -176,9 +178,7 @@ function getTeacher(data) {
 const sendBoardList = (socket, teacher) => {
     let myBoards = [];
     if(teacher){
-        console.log('send boards', teacher);
         const boards = teacher.boards;
-        console.log(boards);
         for (let i = 0; i < boards.length; i++ ) {
             const board = {
                 date: boards[i].date,
@@ -188,7 +188,6 @@ const sendBoardList = (socket, teacher) => {
             myBoards.push(board);
         }
     }
-    console.log(myBoards);
     io.to(`${socket.id}`).emit("setBoardList", {
         myBoards
     });
@@ -200,7 +199,7 @@ const generateUID = () => {
     return uid;
 } 
 
-const createNewBoard = () => {
+const createNewBoard = (teacherData) => {
     const id = generateUID();
     const date = new Date();
     const pin = JSON.stringify(Math.floor(Math.random() * Math.floor(10000)));
@@ -218,7 +217,8 @@ const createNewBoard = () => {
         date: `${day}/${month}`,
         time: `${hours}:${minutes}`,
         string: `id=${id}&&pin=${pin}`,
-        usersCounter: 0
+        usersCounter: 0,
+        teacher: teacherData.uid
     };
     return board;
 
@@ -242,7 +242,7 @@ function onConnection(socket) {
 
     socket.on("createBoard", data => {
         console.log("create board");
-        const board = createNewBoard();
+        const board = createNewBoard(data);
         const boardObj = BoardData.load(board.id);
         const teacher = getTeacher(data);
         teacher.addBoard(board);
@@ -297,10 +297,6 @@ function connectToRoom(socket) {
                 boardReady: boardReady
             });
     }
-
-
-
-
 
     socket.on("join", data => {
         let error = false;

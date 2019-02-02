@@ -1,10 +1,17 @@
 {
-    "lastSaveDate": 1549107198402,
+    "lastSaveDate": 1549110052084,
     "name": "GrégoireLeBeauGosse",
-    "fistName": "Grégoire",
     "lastName": "LeBeauGosse",
     "uid": "gregocl",
     "password": "333888",
-    "boards": [],
+    "boards": [{
+        "id": "jrng4m43t",
+        "pin": "7796",
+        "date": "02/02",
+        "time": "13:20",
+        "string": "id=jrng4m43t&&pin=7796",
+        "usersCounter": 0,
+        "teacher": "gregocl"
+    }],
     "file": "C:\\Users\\Grégoire\\Desktop\\Masson\\server\\data\\teachers\\teacher-gregocl.json"
 }

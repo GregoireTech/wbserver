@@ -24,7 +24,6 @@ function startIO(app) {
     return io;
 }
 
-
 const saveTeachers = (tmpTeachers) => {
     console.log(tmpTeachers);
     const teachersFile = path.join(DATA_DIR, "teachers.json");
@@ -50,6 +49,7 @@ const saveBoards = (tmpBoards) => {
         }
     });
 }
+
 const saveTeacher = (tmpTeacher) => {
     const teacherFile = path.join(DATA_DIR, `teachers/teacher-${tmpTeacher.uid}.json`);
     const teacher_txt = JSON.stringify(tmpTeacher);
@@ -72,11 +72,42 @@ function noFail(fn) {
     }
 }
 
+/** Returns a promise to a BoardData with the given name*/
+function getBoard(name) {
+	if (boards.hasOwnProperty(name)) {
+		return boards[name];
+	} else {
+		const board = BoardData.load(name);
+		boards[name] = board;
+		return board;
+	}
+}
+
+function getTeacher(data) {
+    if (teachers.includes(data.uid)) {
+        console.log('getting teacher')
+        const teacherInfo = require(`../data/teachers/teacher-${data.uid}.json`);
+        const teacherObj = new TeacherData(null, null, null,null);
+        teacherObj.load(teacherInfo);
+        return teacherObj;
+    } else {
+        console.log('create teacher');
+        const teacher = new TeacherData(data.firstName, data.lastName, data.uid, data.password);
+        tmpTeachers = teachers;
+        tmpTeachers.push(data.uid);
+        teacher.save();
+        noFail(saveTeachers(tmpTeachers));
+        console.log('savedTeachers');
+
+        return teacher;
+    }
+}
+
 ////////////////////////////////////////////////
 //        LOOP TO DELETE OLD BOARDS           //
 ////////////////////////////////////////////////
 const deleteOldBoards = (boardsToDelete) => {
-    console.log('deleting : ', boardsToDelete);
+    console.log('deleting old boards ');
     boardsToDelete.forEach(oldBoard => {
 
         //Disconnect all users from the board before removing it
@@ -142,35 +173,7 @@ defineBoardsToDelete();
 
 
 
-/** Returns a promise to a BoardData with the given name*/
-function getBoard(name) {
-	if (boards.hasOwnProperty(name)) {
-		return boards[name];
-	} else {
-		const board = BoardData.load(name);
-		boards[name] = board;
-		return board;
-	}
-}
-function getTeacher(data) {
-    if (teachers.includes(data.uid)) {
-        console.log('getting teacher')
-        const teacherInfo = require(`../data/teachers/teacher-${data.uid}.json`);
-        const teacherObj = new TeacherData(null, null, null,null);
-        teacherObj.load(teacherInfo);
-        return teacherObj;
-    } else {
-        console.log('create teacher');
-        const teacher = new TeacherData(data.firstName, data.lastName, data.uid, data.password);
-        tmpTeachers = teachers;
-        tmpTeachers.push(data.uid);
-        teacher.save();
-        noFail(saveTeachers(tmpTeachers));
-        console.log('savedTeachers');
 
-        return teacher;
-    }
-}
 
 ////////////////////////////////////////////////
 //           TEACHER INTERFACE                //
@@ -278,25 +281,25 @@ function saveHistory(boardName, message) {
     });
 }
 
+const joinBoard = (socket, data) => {
+    socket.join(data.id);
+    const tmpBoards = boardList;
+    tmpBoards[data.id].usersCounter++;
+    saveBoards(tmpBoards);
+    const board = boardList[data.id];
+    let boardReady;
+    board.usersCounter === 2 ? boardReady = true : boardReady = false;
+    socket["board"] = data.id;
+    console.log(socket["board"], "connected", socket.id);
+    io.of("/boards")
+        .to(`${socket.id}`)
+        .emit("joinSuccess", {
+            boardReady: boardReady
+        });
+}
+
 function connectToRoom(socket) {
     console.log("user in boards");
-
-    const joinBoard = (socket, data) => {
-        socket.join(data.id);
-        const tmpBoards = boardList;
-        tmpBoards[data.id].usersCounter++;
-        saveBoards(tmpBoards);
-        const board = boardList[data.id];
-        let boardReady;
-        board.usersCounter === 2 ? boardReady = true : boardReady = false;
-        socket["board"] = data.id;
-        console.log(socket["board"], "connected", socket.id);
-        io.of("/boards")
-            .to(`${socket.id}`)
-            .emit("joinSuccess", {
-                boardReady: boardReady
-            });
-    }
 
     socket.on("join", data => {
         let error = false;
@@ -395,24 +398,6 @@ function connectToRoom(socket) {
 
 
 
-
-    // ON DISCONNECT
-    // socket.on("disconnect", function () {
-    //     console.log("user disconnected");
-    //     const room = rooms[socket['room']];
-
-    //     if (room) {
-    //         room.removeUser();
-    //         console.log(room.usersCounter);
-    //         room.visioStatus = 0;
-    //         io.of('/rooms').emit('peerLeft');
-    //     }
-    // });
-
-
-
-
-
     ////////////////////////////////////////////////////
     ///////      WEBRTC FUNCTIONALITIES       //////////
     ///////////////////////////////////////////////////
@@ -442,3 +427,26 @@ function connectToRoom(socket) {
 }
 
 exports.start = startIO;
+
+
+
+////////////////////////////////////////////////////
+///////              OLD CODES           //////////
+///////////////////////////////////////////////////
+
+
+
+    // ON DISCONNECT
+    // socket.on("disconnect", function () {
+    //     console.log("user disconnected");
+    //     const room = rooms[socket['room']];
+
+    //     if (room) {
+    //         room.removeUser();
+    //         console.log(room.usersCounter);
+    //         room.visioStatus = 0;
+    //         io.of('/rooms').emit('peerLeft');
+    //     }
+    // });
+
+

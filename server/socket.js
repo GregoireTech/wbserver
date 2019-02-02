@@ -135,7 +135,7 @@ const defineBoardsToDelete = () => {
     saveBoards(newBoards);
 
     // set time out to iterate process in 1h
-    setTimeout(defineBoardsToDelete, 20000);
+    setTimeout(defineBoardsToDelete, 3600000);
 }
 
 defineBoardsToDelete();

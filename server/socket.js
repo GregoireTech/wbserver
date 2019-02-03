@@ -290,7 +290,7 @@ const joinBoard = (socket, data) => {
     let boardReady;
     board.usersCounter === 2 ? boardReady = true : boardReady = false;
     socket["board"] = data.id;
-    console.log(socket["board"], "connected", socket.id);
+    console.log(socket["board"], "connected", socket.id, 'initiator : ', boardReady);
     io.of("/boards")
         .to(`${socket.id}`)
         .emit("joinSuccess", {
@@ -304,7 +304,7 @@ function connectToRoom(socket) {
     socket.on("join", data => {
         let error = false;
         const board = boardList[data.id];
-        console.log(data, boardList);
+        //console.log(data, boardList);
         if (board != undefined) {
             if (board.pin === data.pin) {
                 if (board.usersCounter < 2) {
@@ -327,7 +327,7 @@ function connectToRoom(socket) {
     });
 
     socket.on('inviteGuest', (data) => {
-        const room = rooms[socket['room']];
+        const room = rooms[socket['board']];
         const guest = data.email;
         if (room) {
             const emailSent = emailSender.sendEmail(guest, room.string);
@@ -375,11 +375,11 @@ function connectToRoom(socket) {
         const board = boardList[socket['board']];
         if (board) {
             tmpBoards = boardList;
-            console.log(tmpBoards);
+            //console.log(tmpBoards);
             tmpBoards[socket['board']].usersCounter--;
             saveBoards(tmpBoards);
-            io.of('/boards').emit('peerLeft');
-            console.log(boardList);
+            io.of('/boards').to(socket['board']).emit('PEER_DISCONNECTED');
+            //console.log(boardList);
         }
         //Object.keys(socket.rooms).forEach(function disconnectFrom(room) {
         // if (boards.hasOwnProperty(room)) {
@@ -403,25 +403,24 @@ function connectToRoom(socket) {
     ///////////////////////////////////////////////////
 
     /* INIT message type */
-    socket.on('ASK_WEB_RTC', function (msg) {
-        //console.log('ASK_WEB_RTC: ' + msg);
-        socket.to(socket['room']).emit('ASK_WEB_RTC', msg);
+    socket.on('RTC_PEER_READY', () => {
+        console.log('RTC PEER READY');
+        socket.to(socket['board']).emit('RTC_PEER_READY');
+    })
+
+    socket.on('OFFER_WEB_RTC', offer => {
+        console.log('OFFER_WEB_RTC');
+        socket.to(socket['board']).emit('OFFER_WEB_RTC', offer);
     });
 
-    socket.on('CANDIDATE_WEB_RTC_INIT', function (msg) {
-        //console.log('CANDIDATE_WEB_RTC_INIT: ' + msg);
-        socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_INIT', msg);
+    socket.on('CANDIDATE_WEB_RTC', candidate => {
+        console.log('CANDIDATE_WEB_RTC ');
+        socket.to(socket['board']).emit('CANDIDATE_WEB_RTC',candidate);
     });
 
-    /* RECEIVER message type */
-    socket.on('CANDIDATE_WEB_RTC_REC', function (msg) {
-        //console.log('CANDIDATE_WEB_RTC_REC: ' + msg);
-        socket.to(socket['room']).emit('CANDIDATE_WEB_RTC_REC', msg);
-    });
-
-    socket.on('RESPONSE_WEB_RTC', function (msg) {
-        //console.log('RESPONSE_WEB_RTC: ' + msg);
-        socket.to(socket['room']).emit('RESPONSE_WEB_RTC', msg);
+    socket.on('RESPONSE_WEB_RTC', res => {
+        console.log('RESPONSE_WEB_RTC');
+        socket.to(socket['board']).emit('RESPONSE_WEB_RTC', res);
     });
 
 }
@@ -439,7 +438,7 @@ exports.start = startIO;
 // ON DISCONNECT
 // socket.on("disconnect", function () {
 //     console.log("user disconnected");
-//     const room = rooms[socket['room']];
+//     const room = rooms[socket['board']];
 
 //     if (room) {
 //         room.removeUser();

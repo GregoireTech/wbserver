@@ -17,6 +17,7 @@ SERVER
     => check invite mail service
 
 CLIENT
+    => Favicon
     => webRTC
         -> cross browser
 

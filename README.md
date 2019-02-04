@@ -15,11 +15,16 @@ SERVER
     => implement try/catch (esp. in files save & delete fns)
     => refacture save fn (one fn for all files)
     => check invite mail service
+    => correct delete logic for new year
 
 CLIENT
     => Favicon
     => webRTC
-        -> cross browser
-
+        -> connect even without stream??
+        -> cross browser OK
+        -> firefox error : set remote before add ice candidate : fix logic to add after candidates...
+            -> OK à tester
+    => Trier room list chronologiquement
+    => grid cross browsers
 FILE TRANSFER
 

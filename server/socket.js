@@ -11,9 +11,14 @@ const TeacherData = require("../models/Teacher").TeacherData;
 //import data files
 const teachers = require('../data/teachers.json');
 let boardList = require('../data/boards.json');
+// import iceServers
+const iceServers = require('../config/iceServers.json');
+//const getServers = require('../helpers/iceServers').getServers;
+
 //define variables
 let boards = {};
 let tmpTeachers, tmpBoards;
+serverList = '';
 
 // Start the socket server
 function startIO(app) {
@@ -63,6 +68,9 @@ const saveTeacher = (tmpTeacher) => {
     });
 }
 
+
+
+
 function noFail(fn) {
     return function noFailWrapped(arg) {
         try {
@@ -110,19 +118,6 @@ function getTeacher(data) {
 const deleteOldBoards = (boardsToDelete) => {
     console.log('deleting old boards : ', boardsToDelete);
     boardsToDelete.forEach(oldBoard => {
-
-        // Remove the board from the teacher's board list
-        const tmpTeacher = require(path.join(DATA_DIR, `teachers/teacher-${oldBoard.teacher}.json`));
-        let tmpHisboards = [];
-        tmpTeacher.boards.forEach(hisBoard => {
-            if (hisBoard.id !== oldBoard.id) {
-                tmpHisboards.push(hisBoard);
-            }
-        });
-        tmpTeacher.boards = tmpHisboards;
-        // Save the new teacher object with updated board list
-        saveTeacher(tmpTeacher);
-
         // Remove the board data file
         fs.unlinkSync(path.join(DATA_DIR, `boards/board-${oldBoard.id}.json`), function onDeleteFileSuccess() {
             console.log('file deleted : ', `board-${oldBoard.id}.json`);
@@ -133,7 +128,7 @@ const deleteOldBoards = (boardsToDelete) => {
 }
 
 const defineBoardsToDelete = () => {
-    console.log('defining boards to delete')
+    console.log('defining boards to delete');
     const tmpBoards = require('../data/boards.json');
     let boardsToDelete = [];
     let newBoardList = {};
@@ -168,7 +163,7 @@ const defineBoardsToDelete = () => {
     // set time out to iterate process in 1h
     setTimeout(defineBoardsToDelete, 3600000);
 }
-
+// initiate the above loop on server start
 defineBoardsToDelete();
 
 
@@ -176,17 +171,21 @@ defineBoardsToDelete();
 ////////////////////////////////////////////////
 //           TEACHER INTERFACE                //
 ////////////////////////////////////////////////
-const sendBoardList = (socket, teacher) => {
+const sendBoardList = (socket, teacherId) => {
     let myBoards = [];
-    if (teacher) {
-        const boards = teacher.boards;
-        for (let i = 0; i < boards.length; i++) {
-            const board = {
-                date: boards[i].date,
-                time: boards[i].time,
-                string: boards[i].string
-            };
-            myBoards.push(board);
+    if (teacherId) {
+        
+    console.log('in send boards', teacherId, boardList);
+        for (let key in boardList) {
+            console.log('board teach : ', boardList[key].teacher )
+            if (boardList[key].teacher === teacherId) {
+                const board = {
+                    date: boardList[key].date,
+                    time: boardList[key].time,
+                    string: boardList[key].string
+                };
+                myBoards.push(board);
+            }
         }
     }
     io.to(`${socket.id}`).emit("setBoardList", {
@@ -236,7 +235,7 @@ function onConnection(socket) {
                 msg: 'Wrong Password'
             });
         } else {
-            sendBoardList(socket, teacher);
+            sendBoardList(socket, data.uid);
         }
 
 
@@ -247,13 +246,13 @@ function onConnection(socket) {
         console.log("create board");
         const board = createNewBoard(data);
         const boardObj = BoardData.load(board.id);
-        const teacher = getTeacher(data);
-        teacher.addBoard(board);
-        teacher.save();
+        // const teacher = getTeacher(data);
+        // teacher.addBoard(board);
+        // teacher.save();
         tmpBoards = boardList;
         if (!tmpBoards.hasOwnProperty(board.id)) tmpBoards[board.id] = board;
         saveBoards(tmpBoards);
-        noFail(sendBoardList(socket, teacher));
+        noFail(sendBoardList(socket, data.uid));
     });
 }
 
@@ -294,7 +293,8 @@ const joinBoard = (socket, data) => {
     io.of("/boards")
         .to(`${socket.id}`)
         .emit("joinSuccess", {
-            boardReady: boardReady
+            boardReady: boardReady,
+            iceServers: iceServers
         });
 }
 
@@ -381,19 +381,7 @@ function connectToRoom(socket) {
             io.of('/boards').to(socket['board']).emit('PEER_DISCONNECTED');
             //console.log(boardList);
         }
-        //Object.keys(socket.rooms).forEach(function disconnectFrom(room) {
-        // if (boards.hasOwnProperty(room)) {
-        //     boards[room].then(board => {
-        //         board.users.delete(socket.id);
-        //         var userCount = board.users.size;
-        //         console.log(userCount + " users in " + room);
-        //         if (userCount === 0) {
-        //             board.save();
-        //             delete boards[room];
-        //         }
-        //     });
-        // }
-        //});
+
     });
 
 
@@ -415,7 +403,7 @@ function connectToRoom(socket) {
 
     socket.on('CANDIDATE_WEB_RTC', candidate => {
         console.log('CANDIDATE_WEB_RTC ');
-        socket.to(socket['board']).emit('CANDIDATE_WEB_RTC',candidate);
+        socket.to(socket['board']).emit('CANDIDATE_WEB_RTC', candidate);
     });
 
     socket.on('RESPONSE_WEB_RTC', res => {

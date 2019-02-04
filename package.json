@@ -1,12 +1,9 @@
 {
-  "name": "whiteboard",
+  "name": "massonwb",
   "version": "1.0.0",
   "main": "./server/server.js",
-  "keywords": [
-    "socket.io",
-    "whiteboard"
-  ],
   "dependencies": {
+    "ajax": "0.0.4",
     "express": "^4.16.4",
     "nodemailer": "^5.1.1",
     "nodemailer-sendgrid-transport": "^0.2.0",

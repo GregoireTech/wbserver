@@ -10,18 +10,10 @@ class TeacherData {
         this.lastName = lastName;
         this.uid = uid;
         this.password = password;
-        this.boards = [];
         this.file = path.join(HISTORY_DIR, "teacher-" + encodeURIComponent(uid) + ".json");
     }
 
-    addBoard(board) {
-        this.boards.push(board);
-    }
 
-    removeRoom(boardName) {
-        const boardToRemove = this.boards.getIndex(boardName);
-        this.boards.splice(boardToRemove);
-    }
 
     load(data){
         this.lastSaveDate = data.lastSaveDate;

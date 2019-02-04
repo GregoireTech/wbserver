@@ -1,0 +1,51 @@
+.header {
+    position: relative;
+    width: 100%;
+    background: white;
+    color: black;
+    margin: 0 auto;
+    padding: 1rem;
+    text-align: left;
+
+}
+
+.headerContainer {
+    padding-top: 2rem;
+    width: 70%;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.brand {
+    font-weight: 600;
+    margin-top: 0;
+}
+
+.link {
+    color: #F05A5E;
+    font-family: 'Montserrat';
+    text-align: left;
+};
+
+
+
+.paragraph {
+    margin: 2rem 5rem;
+
+}
+.title {
+    font-weight: 400;
+}
+
+.subtitle {
+    color: grey;
+}
+
+#logo {
+    height: 15%;
+    width: 15%;
+    min-width: 7rem;
+    min-height: 7rem;
+    max-width: 10rem;
+    max-height: 10rem;;
+}

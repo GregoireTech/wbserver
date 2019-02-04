@@ -28,48 +28,17 @@ function startIO(app) {
     return io;
 }
 
-const saveTeachers = (tmpTeachers) => {
-    console.log(tmpTeachers);
-    const teachersFile = path.join(DATA_DIR, "teachers.json");
-    const teachers_txt = JSON.stringify(tmpTeachers);
-    console.log(teachers_txt);
-    fs.writeFileSync(teachersFile, teachers_txt, {
-        flag: 'w'
-    }, function onTeachersSaved(err) {
+const saveFile = (fileType, fileData) => {
+    const file = path.join(DATA_DIR, `${fileType}.json`);
+    const file_txt = JSON.stringify(fileData);
+    fs.writeFileSync(file, file_txt, function onFileSaved(err) {
         if (err) {
-            console.trace(new Error("Unable to save the teachers to file:" + err));
+            console.trace(new Error(`Unable to save the ${fileType} file:` + err));
         } else {
-            console.log("Successfully saved teachers to file");
+            console.log(`Successfully saved the ${fileType} file!`);
         }
     });
 }
-
-const saveBoards = (tmpBoards) => {
-    const boardsFile = path.join(DATA_DIR, "boards.json");
-    const boards_txt = JSON.stringify(tmpBoards);
-    fs.writeFileSync(boardsFile, boards_txt, function onBoardsSaved(err) {
-        if (err) {
-            console.trace(new Error("Unable to save the boards to file:" + err));
-        } else {
-            console.log("Successfully saved boards to file");
-        }
-    });
-}
-
-const saveTeacher = (tmpTeacher) => {
-    const teacherFile = path.join(DATA_DIR, `teachers/teacher-${tmpTeacher.uid}.json`);
-    const teacher_txt = JSON.stringify(tmpTeacher);
-    fs.writeFileSync(teacherFile, teacher_txt, function onTeacherSaved(err) {
-        if (err) {
-            console.trace(new Error("Unable to save the Teacher to file:" + err));
-        } else {
-            console.log("Successfully saved Teacher to file");
-        }
-    });
-}
-
-
-
 
 function noFail(fn) {
     return function noFailWrapped(arg) {
@@ -105,7 +74,7 @@ function getTeacher(data) {
         tmpTeachers = teachers;
         tmpTeachers.push(data.uid);
         teacher.save();
-        noFail(saveTeachers(tmpTeachers));
+        noFail(saveFile('teachers', tmpTeachers));
         console.log('savedTeachers');
 
         return teacher;
@@ -135,8 +104,8 @@ const defineBoardsToDelete = () => {
     // Define current date & time
     const now = new Date();
     const curMonth = now.getMonth() + 1;
-    if (curMonth === 1) curMonth = 13;
     const curDate = now.getDate();
+    if (curMonth === 1 && curDate === 1) curMonth = 13; // Handles the 1st of January
     const curHours = now.getHours();
 
     //loop through boards
@@ -145,7 +114,8 @@ const defineBoardsToDelete = () => {
         const date = tmpBoards[key].date.split('/')[0];
         const hours = tmpBoards[key].time.split(':')[0];
 
-        if (date < curDate && hours < curHours && tmpBoards[key].usersCounter === 0 || month < curMonth && hours < curHours && tmpBoards[key].usersCounter === 0) {
+        if (date < curDate && hours < curHours && tmpBoards[key].usersCounter === 0 
+            || month < curMonth && hours < curHours && tmpBoards[key].usersCounter === 0) {
             // if board older than 24h, add it to list of boards to delete
             boardsToDelete.push(tmpBoards[key]);
         } else {
@@ -159,7 +129,7 @@ const defineBoardsToDelete = () => {
     deleteOldBoards(boardsToDelete);
     //save the new boards list
     console.log('saving new board list');
-    saveBoards(newBoardList);
+    saveFile('boards', newBoardList);
     // set time out to iterate process in 1h
     setTimeout(defineBoardsToDelete, 3600000);
 }
@@ -173,11 +143,8 @@ defineBoardsToDelete();
 ////////////////////////////////////////////////
 const sendBoardList = (socket, teacherId) => {
     let myBoards = [];
-    if (teacherId) {
-        
-    console.log('in send boards', teacherId, boardList);
+    if (teacherId) {    
         for (let key in boardList) {
-            console.log('board teach : ', boardList[key].teacher )
             if (boardList[key].teacher === teacherId) {
                 const board = {
                     date: boardList[key].date,
@@ -251,7 +218,7 @@ function onConnection(socket) {
         // teacher.save();
         tmpBoards = boardList;
         if (!tmpBoards.hasOwnProperty(board.id)) tmpBoards[board.id] = board;
-        saveBoards(tmpBoards);
+        saveFile('boards', tmpBoards);
         noFail(sendBoardList(socket, data.uid));
     });
 }
@@ -284,7 +251,7 @@ const joinBoard = (socket, data) => {
     socket.join(data.id);
     const tmpBoards = boardList;
     tmpBoards[data.id].usersCounter++;
-    saveBoards(tmpBoards);
+    saveFile('boards', tmpBoards);
     const board = boardList[data.id];
     let boardReady;
     board.usersCounter === 2 ? boardReady = true : boardReady = false;
@@ -377,7 +344,7 @@ function connectToRoom(socket) {
             tmpBoards = boardList;
             //console.log(tmpBoards);
             tmpBoards[socket['board']].usersCounter--;
-            saveBoards(tmpBoards);
+            saveFile('boards', tmpBoards);
             io.of('/boards').to(socket['board']).emit('PEER_DISCONNECTED');
             //console.log(boardList);
         }
@@ -435,3 +402,45 @@ exports.start = startIO;
 //         io.of('/rooms').emit('peerLeft');
 //     }
 // });
+
+
+// const saveTeachers = (tmpTeachers) => {
+//     console.log(tmpTeachers);
+//     const teachersFile = path.join(DATA_DIR, "teachers.json");
+//     const teachers_txt = JSON.stringify(tmpTeachers);
+//     console.log(teachers_txt);
+//     fs.writeFileSync(teachersFile, teachers_txt, {
+//         flag: 'w'
+//     }, function onTeachersSaved(err) {
+//         if (err) {
+//             console.trace(new Error("Unable to save the teachers to file:" + err));
+//         } else {
+//             console.log("Successfully saved teachers to file");
+//         }
+//     });
+// }
+
+// const saveBoards = (tmpBoards) => {
+//     const boardsFile = path.join(DATA_DIR, "boards.json");
+//     const boards_txt = JSON.stringify(tmpBoards);
+//     fs.writeFileSync(boardsFile, boards_txt, function onBoardsSaved(err) {
+//         if (err) {
+//             console.trace(new Error("Unable to save the boards to file:" + err));
+//         } else {
+//             console.log("Successfully saved boards to file");
+//         }
+//     });
+// }
+
+
+// const saveTeacher = (tmpTeacher) => {
+//     const teacherFile = path.join(DATA_DIR, `teachers/teacher-${tmpTeacher.uid}.json`);
+//     const teacher_txt = JSON.stringify(tmpTeacher);
+//     fs.writeFileSync(teacherFile, teacher_txt, function onTeacherSaved(err) {
+//         if (err) {
+//             console.trace(new Error("Unable to save the Teacher to file:" + err));
+//         } else {
+//             console.log("Successfully saved Teacher to file");
+//         }
+//     });
+// }

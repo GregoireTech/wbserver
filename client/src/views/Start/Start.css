@@ -1,0 +1,17 @@
+.startContainer {
+    width: 100vw;
+    padding: 0;
+    position: absolute;
+    background: rgb(238, 238, 238);
+    min-height: 90vh;
+    margin: 5vh 0;
+    
+    text-align: center;
+}
+
+
+
+.startContainer li {
+    list-style: none;
+    text-decoration: none;
+}

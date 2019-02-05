@@ -378,15 +378,25 @@ function connectToRoom(socket) {
         socket.to(socket['board']).emit('RESPONSE_WEB_RTC', res);
     });
 
+    ////////////////////////////////////////////////////
+    ///////           FILE TRANSFER          //////////
+    ///////////////////////////////////////////////////
+
+    socket.on('file-send-room', function (file) {
+        console.log(file);
+        socket.to(socket['board']).emit('file-out-room', file);
+    });
+    socket.on('file-send-room-result', function (file) {
+        console.log(file);
+        socket.to(socket['board']).emit('file-out-room-result', file);
+    });
+
+
 }
 
 exports.start = startIO;
 
 
-
-////////////////////////////////////////////////////
-///////              OLD CODES           //////////
-///////////////////////////////////////////////////
 
 
 

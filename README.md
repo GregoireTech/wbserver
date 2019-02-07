@@ -1,7 +1,6 @@
 SERVER
     => check invite mail service 30 min
     DATA => refacture to only 1 teachers file    45min
-1.  => set boards userCounters to 0 on  start
 
 CLIENT
     => webRTC

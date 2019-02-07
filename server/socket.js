@@ -114,8 +114,8 @@ const defineBoardsToDelete = () => {
         const date = tmpBoards[key].date.split('/')[0];
         const hours = tmpBoards[key].time.split(':')[0];
 
-        if (date < curDate && hours < curHours && tmpBoards[key].usersCounter === 0 
-            || month < curMonth && hours < curHours && tmpBoards[key].usersCounter === 0) {
+        if (date < curDate && hours < curHours && tmpBoards[key].usersCounter === 0 ||
+            month < curMonth && hours < curHours && tmpBoards[key].usersCounter === 0) {
             // if board older than 24h, add it to list of boards to delete
             boardsToDelete.push(tmpBoards[key]);
         } else {
@@ -133,17 +133,13 @@ const defineBoardsToDelete = () => {
     // set time out to iterate process in 1h
     setTimeout(defineBoardsToDelete, 3600000);
 }
-// initiate the above loop on server start
-defineBoardsToDelete();
-
-
 
 ////////////////////////////////////////////////
 //           TEACHER INTERFACE                //
 ////////////////////////////////////////////////
 const sendBoardList = (socket, teacherId) => {
     let myBoards = [];
-    if (teacherId) {    
+    if (teacherId) {
         for (let key in boardList) {
             if (boardList[key].teacher === teacherId) {
                 const board = {
@@ -406,6 +402,22 @@ function connectToRoom(socket) {
         socket.to(socket['board']).emit('message', data);
     })
 
+    ///////////////////////////////////////////////
+    ///////   INITIATE SERVER           //////////
+    //////////////////////////////////////////////
+    const init = () => {
+        // On server start, set all boards' userscounters to 0
+        let tmpBoardList = {};
+        for (let key in boardList){
+            let tmpBoard = boardList[key];
+            tmpBoard.usersCounter = 0;
+            tmpBoardList[key] = tmpBoard;
+        }
+        saveFile('boards', tmpBoardList);
+        // Start the hourly loop to delete old boards
+        defineBoardsToDelete();
+    }
+    init();
 }
 
 exports.start = startIO;

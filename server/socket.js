@@ -379,7 +379,7 @@ function connectToRoom(socket) {
     ///////////////////////////////////////////////////
 
     socket.on('fileTransferRequest', file => {
-        console.log(file);
+        //console.log(file);
         socket.to(socket['board']).emit('fileTransferRequest', file);
     });
 
@@ -389,16 +389,17 @@ function connectToRoom(socket) {
 
 
     socket.on('fileSendStart', file => {
-        console.log(file);
+        //console.log(file);
         socket.to(socket['board']).emit('fileSendStart', file);
     });
 
     socket.on('fileSendResult', file => {
-        console.log(file);
+        //console.log(file);
         socket.to(socket['board']).emit('fileSendResult', file);
     });
 
     socket.on('message', data => {
+        //console.log(data.msg);
         socket.to(socket['board']).emit('message', data);
     })
 

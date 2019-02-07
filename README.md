@@ -1,19 +1,14 @@
 SERVER
     => check invite mail service 30 min
     DATA => refacture to only 1 teachers file    45min
+    => what if server crash, reconnect & draws // does not update
 
 CLIENT
     => webRTC
         -> switch on/off cam & mic
-        -> firefox error : warn on wrong navigator
+        -> nav warning on Edge etc
     => Grid & Flex cross browsers
-    => File Transfer
-3.        -> possible plusieurs fichiers a la suite
-2.        -> file type, size & number
     => DOWNLOAD as img/pdf
-
-
-
 
 DIVERS
     => DEPLOY to AWS

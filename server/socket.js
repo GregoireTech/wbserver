@@ -382,15 +382,29 @@ function connectToRoom(socket) {
     ///////           FILE TRANSFER          //////////
     ///////////////////////////////////////////////////
 
-    socket.on('file-send-room', function (file) {
+    socket.on('fileTransferRequest', file => {
         console.log(file);
-        socket.to(socket['board']).emit('file-out-room', file);
-    });
-    socket.on('file-send-room-result', function (file) {
-        console.log(file);
-        socket.to(socket['board']).emit('file-out-room-result', file);
+        socket.to(socket['board']).emit('fileTransferRequest', file);
     });
 
+    socket.on('fileTransferAccepted', () => {
+        socket.to(socket['board']).emit('fileTransferAccepted');
+    });
+
+
+    socket.on('fileSendStart', file => {
+        console.log(file);
+        socket.to(socket['board']).emit('fileSendStart', file);
+    });
+
+    socket.on('fileSendResult', file => {
+        console.log(file);
+        socket.to(socket['board']).emit('fileSendResult', file);
+    });
+
+    socket.on('message', data => {
+        socket.to(socket['board']).emit('message', data);
+    })
 
 }
 

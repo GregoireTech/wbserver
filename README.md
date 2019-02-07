@@ -1,28 +1,24 @@
-
-/** TODO
-
-DIVERS
-    => SERVE build file
-        -> client dir in server dir
-        -> adapt gitignore
-        -> adapt server.js to serve build if production
-        -> test
-    => DEPLOY to AWS
-    => COMMENT all code (server first, then front scripts)
-
-
 SERVER
-    => implement try/catch (esp. in files save & delete fns) 30 min
-    => refacture save fn (one fn for all files) 30 min
     => check invite mail service 30 min
     DATA => refacture to only 1 teachers file    45min
+1.  => set boards userCounters to 0 on  start
 
 CLIENT
     => webRTC
-        -> connect even without stream??
-        -> cross browser OK
-        -> firefox error : set remote before add ice candidate : fix logic      to add after candidates...
-            -> OK à tester
-    => grid cross browsers
-FILE TRANSFER  3-4H
+        -> switch on/off cam & mic
+        -> firefox error : warn on wrong navigator
+    => Grid & Flex cross browsers
+    => File Transfer
+3.        -> possible plusieurs fichiers a la suite
+2.        -> file type, size & number
+    => DOWNLOAD as img/pdf
 
+
+
+
+DIVERS
+    => DEPLOY to AWS
+    => COMMENT all code (server first, then front scripts)
+    => implement try/catch (esp. in files save & delete fns) 30 min
+    => refacture save fn (one fn for all files) 30 min
+    

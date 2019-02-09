@@ -354,9 +354,9 @@ function connectToRoom(socket) {
     ///////////////////////////////////////////////////
 
     /* INIT message type */
-    socket.on('RTC_PEER_READY', () => {
-        console.log('RTC PEER READY');
-        socket.to(socket['board']).emit('RTC_PEER_READY');
+    socket.on('RTC_MESSAGE', data => {
+        console.log('RTC MESSAGE: ', data.msg);
+        socket.to(socket['board']).emit('RTC_MESSAGE', data);
     })
 
     socket.on('OFFER_WEB_RTC', offer => {

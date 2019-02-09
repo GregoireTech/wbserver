@@ -8,11 +8,9 @@ SERVER
 CLIENT
     => webRTC
         -> switch on/off cam & mic                                  1h30
-        -> nav warning on Edge etc                                  1H
-    => A faire Style                                                -------
-        -> élargir/rétrécir vidéo onclick                           1H
+        -> nav warning on Edge etc                                  30m
     => DOWNLOAD as img/pdf                                          3H
-                                                                    TOTAL 6H
+                                                                    TOTAL 5H
 
 DIVERS
     => DEPLOY to AWS

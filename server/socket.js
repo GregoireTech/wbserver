@@ -1,5 +1,5 @@
 // import external & core librairies
-const emailSender = require('../controllers/emailSender');
+const emailSender = require('../helpers/emailSender');
 const iolib = require("socket.io");
 const path = require('path');
 const fs = require('fs');
@@ -290,13 +290,15 @@ function connectToRoom(socket) {
     });
 
     socket.on('inviteGuest', (data) => {
-        const room = rooms[socket['board']];
+        
+        const board = boardList[data.boardId];
         const guest = data.email;
-        if (room) {
-            const emailSent = emailSender.sendEmail(guest, room.string);
-            io.of('/boards').to(`${socket.id}`).emit('inviteRes', {
-                emailSent
-            })
+        if (board) {
+            const emailSent = emailSender.sendEmail(guest, board.string);
+            console.log(emailSent);
+            io.of('/boards').to(`${socket.id}`).emit('message', {
+                msg: emailSent
+            });
         }
     });
 
@@ -355,22 +357,22 @@ function connectToRoom(socket) {
 
     /* INIT message type */
     socket.on('RTC_MESSAGE', data => {
-        console.log('RTC MESSAGE: ', data.msg);
+        //console.log('RTC MESSAGE: ', data.msg);
         socket.to(socket['board']).emit('RTC_MESSAGE', data);
     })
 
     socket.on('OFFER_WEB_RTC', offer => {
-        console.log('OFFER_WEB_RTC');
+        //console.log('OFFER_WEB_RTC');
         socket.to(socket['board']).emit('OFFER_WEB_RTC', offer);
     });
 
     socket.on('CANDIDATE_WEB_RTC', candidate => {
-        console.log('CANDIDATE_WEB_RTC ');
+        //console.log('CANDIDATE_WEB_RTC ');
         socket.to(socket['board']).emit('CANDIDATE_WEB_RTC', candidate);
     });
 
     socket.on('RESPONSE_WEB_RTC', res => {
-        console.log('RESPONSE_WEB_RTC');
+        //console.log('RESPONSE_WEB_RTC');
         socket.to(socket['board']).emit('RESPONSE_WEB_RTC', res);
     });
 
@@ -425,59 +427,3 @@ exports.start = startIO;
 
 
 
-
-
-// ON DISCONNECT
-// socket.on("disconnect", function () {
-//     console.log("user disconnected");
-//     const room = rooms[socket['board']];
-
-//     if (room) {
-//         room.removeUser();
-//         console.log(room.usersCounter);
-//         room.visioStatus = 0;
-//         io.of('/rooms').emit('peerLeft');
-//     }
-// });
-
-
-// const saveTeachers = (tmpTeachers) => {
-//     console.log(tmpTeachers);
-//     const teachersFile = path.join(DATA_DIR, "teachers.json");
-//     const teachers_txt = JSON.stringify(tmpTeachers);
-//     console.log(teachers_txt);
-//     fs.writeFileSync(teachersFile, teachers_txt, {
-//         flag: 'w'
-//     }, function onTeachersSaved(err) {
-//         if (err) {
-//             console.trace(new Error("Unable to save the teachers to file:" + err));
-//         } else {
-//             console.log("Successfully saved teachers to file");
-//         }
-//     });
-// }
-
-// const saveBoards = (tmpBoards) => {
-//     const boardsFile = path.join(DATA_DIR, "boards.json");
-//     const boards_txt = JSON.stringify(tmpBoards);
-//     fs.writeFileSync(boardsFile, boards_txt, function onBoardsSaved(err) {
-//         if (err) {
-//             console.trace(new Error("Unable to save the boards to file:" + err));
-//         } else {
-//             console.log("Successfully saved boards to file");
-//         }
-//     });
-// }
-
-
-// const saveTeacher = (tmpTeacher) => {
-//     const teacherFile = path.join(DATA_DIR, `teachers/teacher-${tmpTeacher.uid}.json`);
-//     const teacher_txt = JSON.stringify(tmpTeacher);
-//     fs.writeFileSync(teacherFile, teacher_txt, function onTeacherSaved(err) {
-//         if (err) {
-//             console.trace(new Error("Unable to save the Teacher to file:" + err));
-//         } else {
-//             console.log("Successfully saved Teacher to file");
-//         }
-//     });
-// }

@@ -27,16 +27,15 @@ function startIO(app) {
     return io;
 }
 
-const saveFile = (fileType, fileData) => {
-    const file = path.join(DATA_DIR, `${fileType}.json`);
-    const file_txt = JSON.stringify(fileData);
-    fs.writeFileSync(file, file_txt, function onFileSaved(err) {
-        if (err) {
-            console.trace(new Error(`Unable to save the ${fileType} file:` + err));
-        } else {
-            console.log(`Successfully saved the ${fileType} file!`);
-        }
-    });
+const saveBoardsList = (fileData) => {
+    try {
+        const file = path.join(DATA_DIR, `boards.json`);
+        const file_txt = JSON.stringify(fileData);
+        fs.writeFileSync(file, file_txt);
+    }
+    catch (error) {
+            console.error(error);
+    };
 }
 
 function noFail(fn) {
@@ -97,13 +96,14 @@ const sendBoardList = (socket, teacherId) => {
     });
 };
 
-const generateUID = () => {
-    var uid = Date.now().toString(36); //Create the uids in chronological order
-    uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
-    return uid;
-}
+
 
 const createNewBoard = (teacherData) => {
+    const generateUID = () => {
+        var uid = Date.now().toString(36); //Create the uids in chronological order
+        uid += (Math.round(Math.random() * 36)).toString(36); //Add a random character at the end
+        return uid;
+    }
     const id = generateUID();
     const date = new Date();
     const pin = JSON.stringify(Math.floor(Math.random() * Math.floor(10000)));
@@ -141,11 +141,8 @@ function onConnection(socket) {
         } else {
             sendBoardList(socket, data.uid);
         }
-
-
     });
     // If the user wants to create a room
-
     socket.on("createBoard", data => {
         console.log("create board");
         const board = createNewBoard(data);
@@ -153,7 +150,7 @@ function onConnection(socket) {
         tmpBoards = boardList;
         if (!tmpBoards.hasOwnProperty(board.id)) tmpBoards[board.id] = board;
         
-        saveFile('boards', tmpBoards);
+        saveBoardsList(tmpBoards);
         noFail(sendBoardList(socket, data.uid));
     });
 }
@@ -186,7 +183,7 @@ const joinBoard = (socket, data) => {
     socket.join(data.id);
     const tmpBoards = boardList;
     tmpBoards[data.id].usersCounter++;
-    saveFile('boards', tmpBoards);
+    saveBoardsList(tmpBoards);
     socket["board"] = data.id;
     console.log(socket["board"], "connected", socket.id);
     io.of("/boards")
@@ -225,19 +222,13 @@ function connectToRoom(socket) {
     });
 
     socket.on('inviteGuest', (data) => {
-        
         const board = boardList[data.boardId];
         const guest = data.email;
         if (board) {
-            const emailSent = emailSender.sendEmail(guest, board.string);
+            const emailSent = emailSender.sendEmail(io, socket.id, guest, board.string);
             console.log(emailSent);
-            io.of('/boards').to(`${socket.id}`).emit('message', {
-                msg: emailSent
-            });
         }
     });
-
-
 
     ////////////////////////////////////////////////////
     /////// THE WHITEBOARD FUNCTIONALITIES    //////////
@@ -271,17 +262,13 @@ function connectToRoom(socket) {
     }));
 
     socket.on('disconnecting', function onDisconnecting(reason) {
-        console.log(socket['board'], " disconnected ", socket.id);
         const board = boardList[socket['board']];
         if (board) {
             tmpBoards = boardList;
             //console.log(tmpBoards);
             tmpBoards[socket['board']].usersCounter--;
-            saveFile('boards', tmpBoards);
-            io.of('/boards').to(socket['board']).emit('PEER_DISCONNECTED');
-            //console.log(boardList);
+            saveBoardsList(tmpBoards);
         }
-
     });
 
 
@@ -311,6 +298,10 @@ function connectToRoom(socket) {
         socket.to(socket['board']).emit('RESPONSE_WEB_RTC', res);
     });
 
+    socket.on('message', data => {
+        //console.log(data.msg);
+        socket.to(socket['board']).emit('message', data);
+    });
     ////////////////////////////////////////////////////
     ///////           FILE TRANSFER          //////////
     ///////////////////////////////////////////////////
@@ -324,7 +315,6 @@ function connectToRoom(socket) {
         socket.to(socket['board']).emit('fileTransferAccepted');
     });
 
-
     socket.on('fileSendStart', file => {
         //console.log(file);
         socket.to(socket['board']).emit('fileSendStart', file);
@@ -335,10 +325,6 @@ function connectToRoom(socket) {
         socket.to(socket['board']).emit('fileSendResult', file);
     });
 
-    socket.on('message', data => {
-        //console.log(data.msg);
-        socket.to(socket['board']).emit('message', data);
-    })
 
 
 }

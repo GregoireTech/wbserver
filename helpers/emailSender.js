@@ -13,11 +13,20 @@ const validateEmail = email => {
     return re.test(String(email).toLowerCase());
 }
 
-let result;
-exports.sendEmail = (guest, string) => {
+exports.sendEmail = (io, socketId, guest, string) => {
+
+    const sendMessage = (message) => {
+        try {
+            io.of('/boards').to(`${socketId}`).emit('message', {
+                msg: message
+            });
+        }
+        catch(error) {
+            console.error(error);
+        }
+    };
     
     const link = 'https://massonwb.firebaseapp.com/rooms/?' + string;
-    console.log(guest, link);
     if (validateEmail(guest) && string !== undefined) {
         transporter.sendMail({
                 to: guest,
@@ -26,17 +35,13 @@ exports.sendEmail = (guest, string) => {
                 html: `<a href=${link}>Cliquez ici pour rejoindre la room!</a>`
             })
             .then(res => {
-                console.log('invitation envoyée');
-                result = 'Votre invitation a bien été envoyée.'
+                sendMessage('Votre invitation a bien été envoyée.');
             })
             .catch(err => {
                 console.log(err);
-                result = 'Impossible de traiter votre demande. Veuillez rafraîchir la page et réessayer.';
+                sendMessage('Impossible de traiter votre demande. Veuillez rafraîchir la page et réessayer.');
             });
     } else {
-        result = 'Impossible de traiter votre demande. Veuillez rafraîchir la page et réessayer.';
-
+        sendMessage('Impossible de traiter votre demande. Veuillez rafraîchir la page et réessayer.');
     }
-    console.log('in sender, result : ', result )
-    return result;
 }

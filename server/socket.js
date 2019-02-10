@@ -9,7 +9,6 @@ const DATA_DIR = path.join(__dirname, "../data/");
 const BoardData = require("../models/boardData.js").BoardData;
 const TeacherData = require("../models/Teacher").TeacherData;
 //import data files
-const teachers = require('../data/teachers.json');
 let boardList = require('../data/boards.json');
 // import iceServers
 const iceServers = require('../config/iceServers.json');
@@ -17,7 +16,7 @@ const iceServers = require('../config/iceServers.json');
 
 //define variables
 let boards = {};
-let tmpTeachers, tmpBoards;
+let tmpBoards;
 serverList = '';
 
 // Start the socket server
@@ -60,78 +59,20 @@ function getBoard(name) {
         return board;
     }
 }
-
-function getTeacher(data) {
-    if (teachers.includes(data.uid)) {
-        console.log('getting teacher')
+function getTeacher(data){
+    try {
         const teacherInfo = require(`../data/teachers/teacher-${data.uid}.json`);
         const teacherObj = new TeacherData(null, null, null, null);
         teacherObj.load(teacherInfo);
         return teacherObj;
-    } else {
-        console.log('create teacher');
+    }
+    catch(error){
+        console.error(error);
+        console.log('Creating new teacher');
         const teacher = new TeacherData(data.firstName, data.lastName, data.uid, data.password);
-        tmpTeachers = teachers;
-        tmpTeachers.push(data.uid);
         teacher.save();
-        noFail(saveFile('teachers', tmpTeachers));
-        console.log('savedTeachers');
-
         return teacher;
     }
-}
-
-////////////////////////////////////////////////
-//        LOOP TO DELETE OLD BOARDS           //
-////////////////////////////////////////////////
-const deleteOldBoards = (boardsToDelete) => {
-    console.log('deleting old boards : ', boardsToDelete);
-    boardsToDelete.forEach(oldBoard => {
-        // Remove the board data file
-        fs.unlinkSync(path.join(DATA_DIR, `boards/board-${oldBoard.id}.json`), function onDeleteFileSuccess() {
-            console.log('file deleted : ', `board-${oldBoard.id}.json`);
-        }, function onDeleteFileFail(err) {
-            console.log('error deleting file ', `board-${oldBoard.id}.json. Error : `, err);
-        });
-    });
-}
-
-const defineBoardsToDelete = () => {
-    console.log('defining boards to delete');
-    const tmpBoards = require('../data/boards.json');
-    let boardsToDelete = [];
-    let newBoardList = {};
-    // Define current date & time
-    const now = new Date();
-    const curMonth = now.getMonth() + 1;
-    const curDate = now.getDate();
-    if (curMonth === 1 && curDate === 1) curMonth = 13; // Handles the 1st of January
-    const curHours = now.getHours();
-
-    //loop through boards
-    for (let key in tmpBoards) {
-        const month = tmpBoards[key].date.split('/')[1];
-        const date = tmpBoards[key].date.split('/')[0];
-        const hours = tmpBoards[key].time.split(':')[0];
-
-        if (date < curDate && hours < curHours && tmpBoards[key].usersCounter === 0 ||
-            month < curMonth && hours < curHours && tmpBoards[key].usersCounter === 0) {
-            // if board older than 24h, add it to list of boards to delete
-            boardsToDelete.push(tmpBoards[key]);
-        } else {
-            // otherwise add to the new boardList
-            newBoardList[key] = tmpBoards[key];
-        }
-    }
-    // Block any one from joining the rooms to be deleted before deleting room files
-    boardList = newBoardList;
-    // delete the old boards
-    deleteOldBoards(boardsToDelete);
-    //save the new boards list
-    console.log('saving new board list');
-    saveFile('boards', newBoardList);
-    // set time out to iterate process in 1h
-    setTimeout(defineBoardsToDelete, 3600000);
 }
 
 ////////////////////////////////////////////////
@@ -209,11 +150,9 @@ function onConnection(socket) {
         console.log("create board");
         const board = createNewBoard(data);
         const boardObj = BoardData.load(board.id);
-        // const teacher = getTeacher(data);
-        // teacher.addBoard(board);
-        // teacher.save();
         tmpBoards = boardList;
         if (!tmpBoards.hasOwnProperty(board.id)) tmpBoards[board.id] = board;
+        
         saveFile('boards', tmpBoards);
         noFail(sendBoardList(socket, data.uid));
     });
@@ -248,15 +187,11 @@ const joinBoard = (socket, data) => {
     const tmpBoards = boardList;
     tmpBoards[data.id].usersCounter++;
     saveFile('boards', tmpBoards);
-    const board = boardList[data.id];
-    let boardReady;
-    board.usersCounter === 2 ? boardReady = true : boardReady = false;
     socket["board"] = data.id;
-    console.log(socket["board"], "connected", socket.id, 'initiator : ', boardReady);
+    console.log(socket["board"], "connected", socket.id);
     io.of("/boards")
         .to(`${socket.id}`)
         .emit("joinSuccess", {
-            boardReady: boardReady,
             iceServers: iceServers
         });
 }
@@ -405,22 +340,7 @@ function connectToRoom(socket) {
         socket.to(socket['board']).emit('message', data);
     })
 
-    ///////////////////////////////////////////////
-    ///////   INITIATE SERVER           //////////
-    //////////////////////////////////////////////
-    const init = () => {
-        // On server start, set all boards' userscounters to 0
-        let tmpBoardList = {};
-        for (let key in boardList){
-            let tmpBoard = boardList[key];
-            tmpBoard.usersCounter = 0;
-            tmpBoardList[key] = tmpBoard;
-        }
-        saveFile('boards', tmpBoardList);
-        // Start the hourly loop to delete old boards
-        defineBoardsToDelete();
-    }
-    init();
+
 }
 
 exports.start = startIO;

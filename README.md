@@ -1,3 +1,8 @@
+SERVER 
+    => Allow CORS
+
+
+
 CLIENT
     => DOWNLOAD as img/pdf                                          3H
                                                                     TOTAL 3H

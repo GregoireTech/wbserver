@@ -11,6 +11,14 @@ const initDeleteLoop = require('../helpers/boardsDeleter').startDeleter;
 const DATA_DIR = path.join(__dirname, "../data/");
 let boardList = require('../data/boards.json');
 
+// Allow for cross origins
+app.use((req,res,next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    next();
+});
+
 ///////////////////////////////////////////////
 ///////   INITIATE SERVER           //////////
 //////////////////////////////////////////////

@@ -194,7 +194,7 @@ const joinBoard = (socket, data) => {
 }
 
 function connectToRoom(socket) {
-    console.log("user in boards");
+    //console.log("user in boards");
 
     socket.on("join", data => {
         let error = false;
@@ -226,7 +226,7 @@ function connectToRoom(socket) {
         const guest = data.email;
         if (board) {
             const emailSent = emailSender.sendEmail(io, socket.id, guest, board.string);
-            console.log(emailSent);
+            //console.log(emailSent);
         }
     });
 
@@ -243,7 +243,7 @@ function connectToRoom(socket) {
     }));
 
     socket.on('broadcast', noFail(function onBroadcast(message) {
-
+        //console.log(message.data);
         var boardName = message.board || "anonymous";
         var data = message.data;
 

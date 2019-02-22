@@ -26,7 +26,7 @@ exports.sendEmail = (io, socketId, guest, string) => {
         }
     };
     
-    const link = 'https://massonwb.firebaseapp.com/rooms/?' + string;
+    const link = 'https://massonwb.firebaseapp.com/rooms/?tch=hvrue&&' + string;
     if (validateEmail(guest) && string !== undefined) {
         transporter.sendMail({
                 to: guest,
